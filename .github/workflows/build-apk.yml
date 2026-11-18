@@ -1,0 +1,91 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Generar sirena_emergencia.wav
+        run: |
+          mkdir -p app/src/main/res/raw
+          python3 -c "import wave,struct,math;r=44100;w=wave.open('app/src/main/res/raw/sirena_emergencia.wav','wb');w.setnchannels(1);w.setsampwidth(2);w.setframerate(r);w.writeframes(b''.join(struct.pack('<h',int(30000*math.sin(2*math.pi*(1320 if (i//(r//4))%2==0 else 880)*((i%(r//4))/r)))) for i in range(r*4)));w.close()"
+          ls -l app/src/main/res/raw/sirena_emergencia.wav
+
+      - name: Preparar google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > app/google-services.json
+          elif [ ! -f app/google-services.json ]; then
+            echo '{"project_info":{"project_number":"000000000000","project_id":"indrhi-emergencias-dummy","storage_bucket":"indrhi-emergencias-dummy.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:000000000000:android:0000000000000000","android_client_info":{"package_name":"com.indrhi.emergencias"}},"api_key":[{"current_key":"AIzaSyDUMMYDUMMYDUMMYDUMMYDUMMYDUMMY000"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' > app/google-services.json
+          fi
+
+      - name: Restaurar debug.keystore (opcional)
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$DEBUG_KEYSTORE_B64" ]; then
+            mkdir -p ~/.android
+            echo "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+          fi
+
+      - name: Generar Gradle Wrapper 8.7
+        run: |
+          gradle wrapper --gradle-version 8.7
+          chmod +x gradlew
+
+      - name: Compilar APK debug
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verificar APK
+        run: ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Guardar APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Mover tag latest al commit actual
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f latest
+          git push origin latest --force
+
+      - name: Publicar en GitHub Releases (tag latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: INDRHI Emergencias (latest)
+          body: APK debug generado automáticamente desde el último commit de main.
+          files: app/build/outputs/apk/debug/app-debug.apk
+          overwrite_files: true
+          make_latest: true
