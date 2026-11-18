@@ -125,6 +125,10 @@
     color: #6D4C00;
     line-height: 1.35;
   }
+  @media (prefers-color-scheme: dark) {
+    .notice { background: #2A2410; color: #F9E7A0; }
+    .banner { background: #2A2410; color: #F9E7A0; }
+  }
 
   .health-summary {
     display: flex;
@@ -161,6 +165,22 @@
   .health-row .detail { color: var(--detalle); font-size: 0.8rem; margin-top: 2px; word-break: break-word; }
   .health-row.info-row { opacity: 0.92; }
   .health-row .btn-small { flex-shrink: 0; }
+
+  .fcm-token {
+    display: block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    background: rgba(0,0,0,0.05);
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    padding: 8px 10px;
+    word-break: break-all;
+    color: var(--gris-texto);
+    margin: 8px 0;
+  }
+  @media (prefers-color-scheme: dark) {
+    .fcm-token { background: rgba(255,255,255,0.05); }
+  }
 
   .reports-list { font-size: 0.85rem; }
   .report-item {
@@ -235,17 +255,35 @@
     <button class="btn btn-secondary" id="btnRefreshHealth" type="button">Actualizar</button>
   </div>
 
+  <h2>Token FCM (solo local)</h2>
+  <div class="health-row">
+    <span class="icon" id="fcmStatusIcon">ℹ</span>
+    <div class="info">
+      <div class="name">Registro de notificaciones push</div>
+      <div class="detail" id="fcmStatusDetail">Consultando…</div>
+    </div>
+  </div>
+  <code class="fcm-token" id="fcmTokenValue">(sin token)</code>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+    <button class="btn btn-secondary btn-small" id="btnRefreshFcm" type="button">Actualizar token</button>
+    <button class="btn btn-secondary btn-small" id="btnCopyFcm" type="button">Copiar token</button>
+  </div>
+  <div class="notice">
+    El token se guarda SOLO en este teléfono (localStorage). NO se envía a ningún servidor (llegará en la Fase 2). Úsalo para enviar un push de prueba desde la consola de Firebase.
+  </div>
+
   <h2>Reportes guardados en este teléfono</h2>
   <div class="reports-list" id="reportsList"></div>
   <div class="notice">Estos reportes se guardan localmente. NO se envían a ningún servidor hasta la Fase 2.</div>
 
-  <footer>INDRHI Emergencias · v1.0.0 · Fase 1</footer>
+  <footer>INDRHI Emergencias · v1.0.0 · Fase 2A</footer>
 
 <script>
 (function () {
   'use strict';
 
   var STORAGE_KEY = 'indrhi.reportes';
+  var FCM_STORAGE_KEY = 'indrhi.fcmToken';
   var MAX_REPORTS = 50;
   var sirenPollTimer = null;
   var tripleSelection = { tipo: null, lugar: null, estado: null };
@@ -535,6 +573,77 @@
     }
   }
 
+  // ---------- FCM ----------
+  function loadStoredFcmToken() {
+    try { return localStorage.getItem(FCM_STORAGE_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  function saveFcmToken(token) {
+    if (!token) return;
+    try { localStorage.setItem(FCM_STORAGE_KEY, token); } catch (e) {}
+  }
+
+  function renderFcmPanel(token) {
+    var detail = document.getElementById('fcmStatusDetail');
+    var code = document.getElementById('fcmTokenValue');
+    var icon = document.getElementById('fcmStatusIcon');
+    if (token) {
+      detail.textContent = 'Token disponible y guardado solo en este teléfono.';
+      icon.textContent = '✔';
+      icon.style.color = '#2E7D32';
+      code.textContent = token;
+    } else {
+      detail.textContent = 'Token aún no disponible. Abre la app con conexión a Internet o pulsa "Actualizar token".';
+      icon.textContent = '✖';
+      icon.style.color = '#C62828';
+      code.textContent = '(sin token)';
+    }
+  }
+
+  function refreshFcmToken() {
+    var res = parseJson(safeCall('getFcmToken', null));
+    if (res && res.ok && res.token) {
+      saveFcmToken(res.token);
+      renderFcmPanel(res.token);
+    } else {
+      var stored = loadStoredFcmToken();
+      renderFcmPanel(stored || '');
+    }
+  }
+
+  function copyFcmToken() {
+    var stored = loadStoredFcmToken();
+    if (!stored) { window.alert('Aún no hay token para copiar.'); return; }
+    var done = function () { window.alert('Token copiado al portapapeles.'); };
+    var fallback = function () {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = stored;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) done(); else window.alert('No se pudo copiar automáticamente. Mantén pulsado el token para copiarlo manualmente.');
+      } catch (e) {
+        window.alert('No se pudo copiar automáticamente. Mantén pulsado el token para copiarlo manualmente.');
+      }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(stored).then(done).catch(fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  window.onFcmToken = function (token) {
+    if (!token) return;
+    saveFcmToken(token);
+    renderFcmPanel(token);
+    if (window.console && console.log) console.log('[FCM] Token recibido del nativo');
+  };
+
   // ---------- Exponer refreshHealth global ----------
   window.refreshHealth = refreshHealth;
 
@@ -549,6 +658,8 @@
     document.getElementById('btnResetReport').addEventListener('click', resetTriple);
     document.getElementById('btnRefreshHealth').addEventListener('click', refreshHealth);
     document.getElementById('healthRows').addEventListener('click', onHealthRowsClick);
+    document.getElementById('btnRefreshFcm').addEventListener('click', refreshFcmToken);
+    document.getElementById('btnCopyFcm').addEventListener('click', copyFcmToken);
 
     document.getElementById('stepTipo').addEventListener('click', function (ev) {
       var t = ev.target;
@@ -566,6 +677,7 @@
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) {
         refreshHealth();
+        refreshFcmToken();
         pollSiren();
       }
     });
@@ -573,6 +685,8 @@
     resetTriple();
     renderReports();
     refreshHealth();
+    renderFcmPanel(loadStoredFcmToken());
+    refreshFcmToken();
     startSirenPoll();
   }
 
