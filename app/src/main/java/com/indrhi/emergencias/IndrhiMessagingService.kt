@@ -18,7 +18,6 @@ class IndrhiMessagingService : FirebaseMessagingService() {
         private const val TAG = "IndrhiFCM"
         const val CHANNEL_ALARM = "indrhi_alarm"
         const val CHANNEL_INFO = "indrhi_info"
-        private const val NOTIF_ALARM_ID = 1001
         private const val NOTIF_INFO_ID = 1002
 
         fun ensureChannels(context: Context) {
@@ -75,60 +74,42 @@ class IndrhiMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(message)
         val data = message.data
         val action = data["action"] ?: ""
-        val title = data["title"] ?: "INDRHI Emergencias"
-        val body = data["body"] ?: "Mensaje recibido"
+        val title = data["title"] ?: "ALERTA DE EMERGENCIA INDRHI"
+        val body = data["body"] ?: "Evacúe el área inmediatamente."
 
         Log.i(TAG, "onMessageReceived action=$action title=$title")
 
         ensureChannels(this)
 
         if (action == "start_siren") {
-            if (MainActivity.isInForeground) {
-                val started = try {
-                    EmergencySirenPlayer.getInstance(applicationContext).start()
-                } catch (t: Throwable) {
-                    Log.e(TAG, "No se pudo iniciar la sirena desde FCM", t)
-                    false
-                }
-                if (started) {
-                    postNotification(CHANNEL_INFO, NOTIF_INFO_ID, title, "Sirena activada remotamente")
-                } else {
-                    postNotification(CHANNEL_ALARM, NOTIF_ALARM_ID, title, body)
-                }
-            } else {
-                postNotification(CHANNEL_ALARM, NOTIF_ALARM_ID, title, body)
-            }
+            SirenForegroundService.startSiren(applicationContext, title, body)
+        } else if (action == "stop_siren") {
+            SirenForegroundService.stopSiren(applicationContext)
         } else {
-            postNotification(CHANNEL_INFO, NOTIF_INFO_ID, title, body)
+            postInfoNotification(title, body)
         }
     }
 
-    private fun postNotification(channelId: String, notifId: Int, title: String, body: String) {
+    private fun postInfoNotification(title: String, body: String) {
         try {
             val intent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            val pi = PendingIntent.getActivity(this, notifId, intent, piFlags)
+            val pi = PendingIntent.getActivity(this, NOTIF_INFO_ID, intent, piFlags)
 
-            val builder = NotificationCompat.Builder(this, channelId)
+            val builder = NotificationCompat.Builder(this, CHANNEL_INFO)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-                .setPriority(
-                    if (channelId == CHANNEL_ALARM) NotificationCompat.PRIORITY_MAX
-                    else NotificationCompat.PRIORITY_LOW
-                )
-                .setCategory(
-                    if (channelId == CHANNEL_ALARM) NotificationCompat.CATEGORY_ALARM
-                    else NotificationCompat.CATEGORY_STATUS
-                )
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
                 .setAutoCancel(true)
                 .setContentIntent(pi)
 
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-            nm.notify(notifId, builder.build())
+            nm.notify(NOTIF_INFO_ID, builder.build())
         } catch (t: Throwable) {
             Log.e(TAG, "No se pudo publicar notificación", t)
         }
