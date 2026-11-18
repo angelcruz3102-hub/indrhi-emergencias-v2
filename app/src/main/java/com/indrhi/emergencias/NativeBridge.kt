@@ -52,6 +52,24 @@ class NativeBridge(private val activity: Activity) {
     }
 
     @JavascriptInterface
+    fun getFcmToken(): String {
+        return try {
+            val token = MainActivity.cachedFcmToken
+            val obj = JSONObject()
+            if (token.isNullOrEmpty()) {
+                obj.put("ok", false)
+                obj.put("error", "token FCM no disponible todavía")
+            } else {
+                obj.put("ok", true)
+                obj.put("token", token)
+            }
+            obj.toString()
+        } catch (t: Throwable) {
+            errorJson(t)
+        }
+    }
+
+    @JavascriptInterface
     fun getHealth(): String {
         return try {
             val obj = JSONObject()
