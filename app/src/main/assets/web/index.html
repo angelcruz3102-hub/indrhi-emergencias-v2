@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>INDRHI Emergencias</title>
+<style>
+  :root {
+    --rojo: #C62828;
+    --rojo-oscuro: #7F0000;
+    --blanco: #FFFFFF;
+    --negro: #000000;
+    --gris-fondo: #F2F2F2;
+    --gris-texto: #222222;
+    --verde: #2E7D32;
+    --amarillo: #F9A825;
+    --borde: #CCCCCC;
+    --tarjeta: #FFFFFF;
+    --detalle: #666666;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --gris-fondo: #121212;
+      --gris-texto: #EEEEEE;
+      --blanco: #1E1E1E;
+      --negro: #FFFFFF;
+      --borde: #333333;
+      --tarjeta: #1F1F1F;
+      --detalle: #AAAAAA;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: rgba(198,40,40,0.3); }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--gris-fondo);
+    color: var(--gris-texto);
+    padding: env(safe-area-inset-top) 12px calc(24px + env(safe-area-inset-bottom)) 12px;
+    min-height: 100vh;
+    font-size: 16px;
+    line-height: 1.4;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  h2 { font-size: 1.08rem; margin: 20px 0 8px; }
+  header { text-align: center; padding: 10px 0; border-bottom: 3px solid var(--rojo); margin-bottom: 8px; }
+  header h1 { color: var(--rojo); }
+  header .sub { font-size: 0.82rem; color: var(--detalle); }
+  .banner {
+    display: none;
+    background: #FFF3E0;
+    color: #6D4C00;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin: 10px 0;
+    border: 1px solid #F9A825;
+    font-size: 0.9rem;
+  }
+  .banner.visible { display: block; }
+  .siren-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    margin: 12px 0;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+  .siren-status .dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #999;
+    flex-shrink: 0;
+  }
+  .siren-status.active { border-color: var(--rojo); }
+  .siren-status.active .dot { background: var(--rojo); animation: pulse 0.8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .grid-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 16px; }
+  .btn {
+    min-height: 56px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 10px 12px;
+    color: #FFFFFF;
+    background: var(--rojo);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.18);
+    transition: transform 0.05s ease;
+    font-family: inherit;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-block { width: 100%; }
+  .btn-danger { background: var(--rojo); grid-column: span 2; font-size: 1.12rem; }
+  .btn-stop { background: var(--rojo-oscuro); grid-column: span 2; font-size: 1.12rem; }
+  .btn-safe { background: var(--verde); }
+  .btn-help { background: #B71C1C; }
+  .btn-secondary { background: #555555; }
+  .btn-small { min-height: 44px; font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; }
+
+  .card {
+    background: var(--tarjeta);
+    border: 2px solid var(--rojo);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 12px 0;
+  }
+  .card h2 { margin-top: 0; }
+  .step-label { font-size: 0.9rem; margin: 10px 0 6px; font-weight: 700; }
+  .step-value { color: var(--rojo); font-weight: 700; }
+  .step-buttons { display: grid; gap: 8px; }
+  .step-buttons .btn { min-height: 56px; }
+  .step-hidden { display: none; }
+
+  .notice {
+    background: #FFF8E1;
+    border-left: 4px solid #F9A825;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    margin: 12px 0;
+    color: #6D4C00;
+    line-height: 1.35;
+  }
+
+  .health-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--tarjeta);
+    border-radius: 10px;
+    font-weight: 700;
+    margin: 8px 0;
+    border: 1px solid var(--borde);
+    font-size: 0.95rem;
+  }
+  .health-summary .dot { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok { background: var(--verde); }
+  .dot.warn { background: #F9A825; }
+  .dot.bad { background: var(--rojo); }
+  .dot.gray { background: #999999; }
+
+  .health-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--tarjeta);
+    border-radius: 8px;
+    margin: 6px 0;
+    border: 1px solid var(--borde);
+    font-size: 0.9rem;
+  }
+  .health-row .icon { font-size: 1.15rem; flex-shrink: 0; width: 20px; text-align: center; }
+  .health-row .info { flex: 1; min-width: 0; }
+  .health-row .name { font-weight: 700; }
+  .health-row .detail { color: var(--detalle); font-size: 0.8rem; margin-top: 2px; word-break: break-word; }
+  .health-row.info-row { opacity: 0.92; }
+  .health-row .btn-small { flex-shrink: 0; }
+
+  .reports-list { font-size: 0.85rem; }
+  .report-item {
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 6px 0;
+  }
+  .report-item .meta { color: var(--detalle); font-size: 0.78rem; margin-top: 4px; }
+
+  footer { text-align: center; font-size: 0.8rem; color: var(--detalle); margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--borde); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>INDRHI Emergencias</h1>
+    <div class="sub">Sirena de evacuación al 100% por canal de alarma</div>
+  </header>
+
+  <div class="banner" id="previewBanner">Modo vista previa: sin puente nativo. Los controles de sirena y ajustes no funcionarán aquí.</div>
+
+  <div class="siren-status" id="sirenStatus">
+    <span class="dot"></span>
+    <span id="sirenStatusText">Sirena: detenida</span>
+  </div>
+
+  <div class="grid-buttons">
+    <button class="btn btn-danger" id="btnActivate" type="button">Activar Sirena Roja</button>
+    <button class="btn btn-stop" id="btnStop" type="button">Detener Sirena</button>
+    <button class="btn btn-safe" id="btnSafe" type="button">Estoy a salvo</button>
+    <button class="btn btn-help" id="btnHelp" type="button">Necesito ayuda</button>
+  </div>
+
+  <div class="card">
+    <h2>Reporte rápido de 3 toques</h2>
+    <div class="step-label">Toque 1 — Tipo: <span class="step-value" id="selTipo">—</span></div>
+    <div class="step-buttons" id="stepTipo">
+      <button class="btn" type="button" data-tipo="Incendio">Incendio</button>
+      <button class="btn" type="button" data-tipo="Inundación">Inundación</button>
+      <button class="btn" type="button" data-tipo="Falla estructural">Falla estructural</button>
+      <button class="btn" type="button" data-tipo="Otro">Otro</button>
+    </div>
+
+    <div class="step-label step-hidden" id="lblLugar">Toque 2 — Lugar: <span class="step-value" id="selLugar">—</span></div>
+    <div class="step-buttons step-hidden" id="stepLugar">
+      <button class="btn" type="button" data-lugar="Edificio ED1">Edificio ED1</button>
+      <button class="btn" type="button" data-lugar="Edificio ED2">Edificio ED2</button>
+      <button class="btn" type="button" data-lugar="Exterior">Exterior</button>
+    </div>
+
+    <div class="step-label step-hidden" id="lblEstado">Toque 3 — Estado: <span class="step-value" id="selEstado">—</span></div>
+    <div class="step-buttons step-hidden" id="stepEstado">
+      <button class="btn" type="button" data-estado="A salvo">A salvo</button>
+      <button class="btn" type="button" data-estado="Necesito ayuda">Necesito ayuda</button>
+      <button class="btn" type="button" data-estado="Hay heridos">Hay heridos</button>
+    </div>
+
+    <div class="notice">
+      Guardado en este teléfono. Aún NO se envía a ningún servidor (llegará en la Fase 2).
+    </div>
+    <button class="btn btn-secondary btn-small btn-block" id="btnResetReport" type="button" style="margin-top:8px">Reiniciar selección</button>
+  </div>
+
+  <h2>Panel de salud de permisos</h2>
+  <div class="health-summary" id="healthSummary">
+    <span class="dot gray" id="healthDot"></span>
+    <span id="healthSummaryText">Consultando…</span>
+  </div>
+  <div id="healthRows"></div>
+  <div style="display:grid;gap:8px;margin-top:10px">
+    <button class="btn btn-secondary" id="btnRefreshHealth" type="button">Actualizar</button>
+  </div>
+
+  <h2>Reportes guardados en este teléfono</h2>
+  <div class="reports-list" id="reportsList"></div>
+  <div class="notice">Estos reportes se guardan localmente. NO se envían a ningún servidor hasta la Fase 2.</div>
+
+  <footer>INDRHI Emergencias · v1.0.0 · Fase 1</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'indrhi.reportes';
+  var MAX_REPORTS = 50;
+  var sirenPollTimer = null;
+  var tripleSelection = { tipo: null, lugar: null, estado: null };
+
+  function getBridge() {
+    return (typeof window !== 'undefined' && window.IndrhiBridge) ? window.IndrhiBridge : null;
+  }
+
+  function safeCall(methodName, fallback) {
+    var bridge = getBridge();
+    if (!bridge || typeof bridge[methodName] !== 'function') return fallback;
+    try {
+      return bridge[methodName]();
+    } catch (e) {
+      if (window.console && console.warn) console.warn('Fallo llamando a ' + methodName + ':', e);
+      return fallback;
+    }
+  }
+
+  function parseJson(raw) {
+    if (raw == null) return null;
+    if (typeof raw === 'object') return raw;
+    try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function setPreviewBanner() {
+    if (!getBridge()) {
+      document.getElementById('previewBanner').classList.add('visible');
+    }
+  }
+
+  // ---------- Sirena ----------
+  function updateSirenStatus(playing) {
+    var el = document.getElementById('sirenStatus');
+    var txt = document.getElementById('sirenStatusText');
+    if (playing) {
+      el.classList.add('active');
+      txt.textContent = 'Sirena: ACTIVA (sonando al 100%)';
+    } else {
+      el.classList.remove('active');
+      txt.textContent = 'Sirena: detenida';
+    }
+  }
+
+  function pollSiren() {
+    if (document.hidden) return;
+    var playing = safeCall('isAlarmPlaying', false);
+    updateSirenStatus(!!playing);
+  }
+
+  function startSirenPoll() {
+    if (sirenPollTimer) return;
+    sirenPollTimer = setInterval(pollSiren, 1000);
+    pollSiren();
+  }
+
+  function onActivate() {
+    var ok = window.confirm('Se activará la sirena al 100% de volumen. Si usa audífonos, retírelos.');
+    if (!ok) return;
+    var res = parseJson(safeCall('testAlarm', null));
+    if (res && res.playing) {
+      updateSirenStatus(true);
+    } else if (res && res.ok === false) {
+      window.alert('No se pudo iniciar la sirena. Revise el panel de salud.');
+    }
+  }
+
+  function onStop() {
+    safeCall('stopAlarm', null);
+    updateSirenStatus(false);
+  }
+
+  // ---------- Reportes ----------
+  function readReports() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      var arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+
+  function writeReports(list) {
+    try {
+      var capped = list.slice(0, MAX_REPORTS);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(capped));
+      return capped;
+    } catch (e) { return list; }
+  }
+
+  function addReport(tipo, lugar, estado) {
+    var ctx = parseJson(safeCall('getContext', null)) || {};
+    var report = {
+      id: 'r-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+      tipo: tipo,
+      lugar: lugar,
+      estado: estado,
+      fechaIso: new Date().toISOString(),
+      contexto: ctx,
+      enviado: false
+    };
+    var list = readReports();
+    list.unshift(report);
+    writeReports(list);
+    renderReports();
+    return report;
+  }
+
+  function renderReports() {
+    var cont = document.getElementById('reportsList');
+    var list = readReports();
+    if (!list.length) {
+      cont.innerHTML = '<div style="padding:8px;color:#777">Aún no hay reportes en este teléfono.</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      var fecha = '';
+      try { fecha = new Date(r.fechaIso).toLocaleString('es-DO'); } catch (e) { fecha = r.fechaIso || ''; }
+      html += '<div class="report-item">';
+      html += '<div><strong>' + escapeHtml(r.tipo) + '</strong> · ' + escapeHtml(r.lugar) + ' · ' + escapeHtml(r.estado) + '</div>';
+      html += '<div class="meta">' + escapeHtml(fecha) + ' · Guardado en este teléfono · NO enviado</div>';
+      html += '</div>';
+    }
+    cont.innerHTML = html;
+  }
+
+  // ---------- Reporte de 3 toques ----------
+  function resetTriple() {
+    tripleSelection = { tipo: null, lugar: null, estado: null };
+    document.getElementById('selTipo').textContent = '—';
+    document.getElementById('selLugar').textContent = '—';
+    document.getElementById('selEstado').textContent = '—';
+    document.getElementById('stepTipo').classList.remove('step-hidden');
+    document.getElementById('lblLugar').classList.add('step-hidden');
+    document.getElementById('stepLugar').classList.add('step-hidden');
+    document.getElementById('lblEstado').classList.add('step-hidden');
+    document.getElementById('stepEstado').classList.add('step-hidden');
+  }
+
+  function pickTipo(tipo) {
+    tripleSelection.tipo = tipo;
+    document.getElementById('selTipo').textContent = tipo;
+    document.getElementById('stepTipo').classList.add('step-hidden');
+    document.getElementById('lblLugar').classList.remove('step-hidden');
+    document.getElementById('stepLugar').classList.remove('step-hidden');
+  }
+
+  function pickLugar(lugar) {
+    tripleSelection.lugar = lugar;
+    document.getElementById('selLugar').textContent = lugar;
+    document.getElementById('stepLugar').classList.add('step-hidden');
+    document.getElementById('lblEstado').classList.remove('step-hidden');
+    document.getElementById('stepEstado').classList.remove('step-hidden');
+  }
+
+  function pickEstado(estado) {
+    tripleSelection.estado = estado;
+    document.getElementById('selEstado').textContent = estado;
+    document.getElementById('stepEstado').classList.add('step-hidden');
+    if (tripleSelection.tipo && tripleSelection.lugar) {
+      addReport(tripleSelection.tipo, tripleSelection.lugar, estado);
+      window.alert('Reporte guardado en este teléfono. Aún NO se envía a ningún servidor (llegará en la Fase 2).');
+      resetTriple();
+    }
+  }
+
+  function onSafe() {
+    addReport('No especificado', 'No especificado', 'A salvo');
+    window.alert('Estado "A salvo" guardado en este teléfono. Aún NO se envía a ningún servidor (llegará en la Fase 2).');
+  }
+
+  function onHelp() {
+    addReport('No especificado', 'No especificado', 'Necesito ayuda');
+    window.alert('Estado "Necesito ayuda" guardado en este teléfono. Aún NO se envía a ningún servidor (llegará en la Fase 2).');
+  }
+
+  // ---------- Panel de salud ----------
+  function setDot(cls) {
+    var dot = document.getElementById('healthDot');
+    dot.className = 'dot ' + cls;
+  }
+
+  function healthRow(ok, name, detail, action) {
+    var icon = ok ? '✔' : '✖';
+    var color = ok ? '#2E7D32' : '#C62828';
+    var html = '<div class="health-row">' +
+      '<span class="icon" style="color:' + color + '">' + icon + '</span>' +
+      '<div class="info"><div class="name">' + escapeHtml(name) + '</div>' +
+      '<div class="detail">' + escapeHtml(detail) + '</div></div>';
+    if (action) {
+      html += '<button class="btn btn-secondary btn-small" type="button" data-action="' + action + '">Abrir ajustes</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function infoRow(name, value) {
+    return '<div class="health-row info-row">' +
+      '<span class="icon">ℹ</span>' +
+      '<div class="info"><div class="name">' + escapeHtml(name) + '</div>' +
+      '<div class="detail">' + escapeHtml(value) + '</div></div>' +
+      '</div>';
+  }
+
+  function refreshHealth() {
+    var h = parseJson(safeCall('getHealth', null));
+    if (!h) {
+      document.getElementById('healthSummaryText').textContent = 'Sin datos del puente nativo (vista previa).';
+      document.getElementById('healthRows').innerHTML = '';
+      setDot('gray');
+      return;
+    }
+
+    var notifOk = !!h.notificationsEnabled && !!h.postNotificationsGranted;
+    var dndOk = !!h.dndAccessGranted;
+    var fsOk = !!h.fullScreenIntentAllowed;
+    var batOk = !!h.batteryOptimizationIgnored;
+
+    var checks = [notifOk, dndOk, fsOk, batOk];
+    var okCount = 0;
+    for (var i = 0; i < checks.length; i++) { if (checks[i]) okCount++; }
+    var total = checks.length;
+
+    var dotClass;
+    var summaryText;
+    if (okCount === total) { dotClass = 'ok'; summaryText = 'Todos los permisos críticos están OK'; }
+    else if (okCount === 0) { dotClass = 'bad'; summaryText = 'Ningún permiso crítico configurado'; }
+    else { dotClass = 'warn'; summaryText = okCount + ' de ' + total + ' permisos críticos OK'; }
+
+    setDot(dotClass);
+    document.getElementById('healthSummaryText').textContent = summaryText;
+
+    var rows = '';
+
+    rows += healthRow(
+      notifOk,
+      'Notificaciones',
+      notifOk ? 'Notificaciones activas' : 'Notificaciones desactivadas o falta POST_NOTIFICATIONS',
+      'openNotificationSettings'
+    );
+
+    var dndDetail = 'Acceso a No Molestar: ' + (dndOk ? 'concedido' : 'no concedido') +
+      ' · Filtro actual: ' + (h.interruptionFilter || 'UNKNOWN');
+    if (h.interruptionFilter === 'NONE') {
+      dndDetail += ' (¡silencio total! puede bloquear alarmas)';
+    }
+    rows += healthRow(dndOk, 'Acceso a No Molestar', dndDetail, 'openDndSettings');
+
+    rows += healthRow(
+      fsOk,
+      'Pantalla completa sobre bloqueo',
+      fsOk ? 'Permitido' : 'No permitido (Android 14+)',
+      'openFullScreenSettings'
+    );
+
+    rows += healthRow(
+      batOk,
+      'Batería sin restricciones',
+      batOk ? 'Exento de optimización' : 'Optimización de batería activa',
+      'openBatterySettings'
+    );
+
+    rows += infoRow('Volumen de alarma', (h.alarmVolume != null ? h.alarmVolume : '?') + ' / ' + (h.alarmVolumeMax != null ? h.alarmVolumeMax : '?'));
+    rows += infoRow('Modo de timbre', h.ringerMode || 'UNKNOWN');
+    rows += infoRow('Audífonos conectados', h.headphonesConnected ? 'Sí' : 'No');
+
+    document.getElementById('healthRows').innerHTML = rows;
+  }
+
+  function onHealthRowsClick(ev) {
+    var target = ev.target;
+    if (!target || target.tagName !== 'BUTTON') return;
+    var action = target.getAttribute('data-action');
+    if (!action) return;
+    var res = parseJson(safeCall(action, null));
+    if (res && res.ok === false) {
+      window.alert('No se pudo abrir el ajuste solicitado.');
+    }
+  }
+
+  // ---------- Exponer refreshHealth global ----------
+  window.refreshHealth = refreshHealth;
+
+  // ---------- Arranque ----------
+  function bind() {
+    setPreviewBanner();
+
+    document.getElementById('btnActivate').addEventListener('click', onActivate);
+    document.getElementById('btnStop').addEventListener('click', onStop);
+    document.getElementById('btnSafe').addEventListener('click', onSafe);
+    document.getElementById('btnHelp').addEventListener('click', onHelp);
+    document.getElementById('btnResetReport').addEventListener('click', resetTriple);
+    document.getElementById('btnRefreshHealth').addEventListener('click', refreshHealth);
+    document.getElementById('healthRows').addEventListener('click', onHealthRowsClick);
+
+    document.getElementById('stepTipo').addEventListener('click', function (ev) {
+      var t = ev.target;
+      if (t && t.tagName === 'BUTTON' && t.getAttribute('data-tipo')) pickTipo(t.getAttribute('data-tipo'));
+    });
+    document.getElementById('stepLugar').addEventListener('click', function (ev) {
+      var t = ev.target;
+      if (t && t.tagName === 'BUTTON' && t.getAttribute('data-lugar')) pickLugar(t.getAttribute('data-lugar'));
+    });
+    document.getElementById('stepEstado').addEventListener('click', function (ev) {
+      var t = ev.target;
+      if (t && t.tagName === 'BUTTON' && t.getAttribute('data-estado')) pickEstado(t.getAttribute('data-estado'));
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) {
+        refreshHealth();
+        pollSiren();
+      }
+    });
+
+    resetTriple();
+    renderReports();
+    refreshHealth();
+    startSirenPoll();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
+})();
+</script>
+</body>
+</html>
