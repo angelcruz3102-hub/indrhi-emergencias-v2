@@ -1,0 +1,15 @@
+# Gradle
+.gradle/
+build/
+local.properties
+gradle/wrapper/
+gradlew
+gradlew.bat
+
+# IDE
+.idea/
+*.iml
+
+# Secretos / binarios generados por el workflow
+app/google-services.json
+app/src/main/res/raw/sirena_emergencia.wav
