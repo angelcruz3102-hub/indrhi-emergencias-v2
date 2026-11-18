@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="rojo_emergencia">#C62828</color>
+    <color name="rojo_oscuro">#7F0000</color>
+    <color name="blanco">#FFFFFF</color>
+    <color name="negro">#000000</color>
+    <color name="gris_fondo">#F2F2F2</color>
+</resources>
