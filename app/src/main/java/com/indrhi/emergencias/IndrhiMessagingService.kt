@@ -64,6 +64,11 @@ class IndrhiMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Log.i(TAG, "Nuevo token FCM: $token")
+        try {
+            MainActivity.cachedFcmToken = token
+        } catch (t: Throwable) {
+            Log.w(TAG, "No se pudo propagar el token a MainActivity", t)
+        }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
