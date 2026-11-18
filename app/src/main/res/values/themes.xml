@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.IndrhiEmergencias" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@color/rojo_oscuro</item>
+        <item name="android:navigationBarColor">@color/rojo_oscuro</item>
+        <item name="colorPrimary">@color/rojo_emergencia</item>
+        <item name="colorPrimaryDark">@color/rojo_oscuro</item>
+        <item name="colorAccent">@color/rojo_emergencia</item>
+        <item name="android:windowBackground">@color/gris_fondo</item>
+    </style>
+</resources>
