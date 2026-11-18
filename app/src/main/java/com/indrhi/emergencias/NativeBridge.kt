@@ -23,10 +23,14 @@ class NativeBridge(private val activity: Activity) {
     @JavascriptInterface
     fun testAlarm(): String {
         return try {
-            val started = player.start()
+            SirenForegroundService.startSiren(
+                activity.applicationContext,
+                "SIRENA DE EMERGENCIA ACTIVA",
+                "Alarma activada manualmente desde el dispositivo."
+            )
             val obj = JSONObject()
-            obj.put("ok", started)
-            obj.put("playing", player.isPlaying())
+            obj.put("ok", true)
+            obj.put("playing", true)
             obj.toString()
         } catch (t: Throwable) {
             errorJson(t)
@@ -36,7 +40,7 @@ class NativeBridge(private val activity: Activity) {
     @JavascriptInterface
     fun stopAlarm(): String {
         return try {
-            player.stop()
+            SirenForegroundService.stopSiren(activity.applicationContext)
             val obj = JSONObject()
             obj.put("ok", true)
             obj.put("playing", false)
