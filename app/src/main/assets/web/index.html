@@ -28,7 +28,7 @@ h2{font-size:17px;margin:0 0 10px}h3{font-size:15px;margin:0 0 6px}
 .btn.red{background:var(--red)}.btn.green{background:var(--green)}.btn.amber{background:var(--amber)}.btn.gray{background:var(--bd);color:var(--tx)}
 .btn.sm{width:auto;padding:8px 12px;min-height:36px;font-size:13px;border-radius:10px}
 .row{display:flex;gap:10px}.row>*{flex:1}
-.wrap{display:flex;flex-wrap:wrap;gap:8px}
+.wrap{display:flex;flex-wrap:wrap;gap:6px}
 input,select,textarea{width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);margin:4px 0 10px}
 label{font-size:13px;color:var(--mut);font-weight:600}
 .chip{border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:7px 14px;font-size:13px;cursor:pointer}
@@ -75,6 +75,10 @@ label{font-size:13px;color:var(--mut);font-weight:600}
 .msg.me .drive-btn{background:rgba(255,255,255,.2);color:#fff}
 .chat-prev{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:6px 10px;margin-top:6px}
 .chat-prev img{width:42px;height:42px;border-radius:8px;object-fit:cover}
+.chk-list{border:1px solid var(--bd);border-radius:12px;background:var(--bg);padding:6px 10px;margin:4px 0 10px}
+.chk-item{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--bd);color:var(--tx);font-weight:500;cursor:pointer}
+.chk-item:last-child{border-bottom:0}
+.chk-item input{width:18px;height:18px;margin:0;flex:none;accent-color:var(--blue)}
 :focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 </style></head><body>
 <div id="app"></div><div id="ov"></div><div id="toast"></div>
@@ -92,9 +96,10 @@ var BRIG=[
  'Brigada Médica / Primeros Auxilios',
  'Brigada de Comunicación y Apoyo'
 ];
-var SEG_NIVEL=[
- 'Jefe de Seguridad',
- 'Subalterno de Seguridad'
+var ADM_AREAS=[
+ 'Administración',
+ 'Tecnología',
+ 'Recursos Humanos'
 ];
 var BRIG_ROOMS={
  'Brigada de Evacuación y Rescate':{id:'grupo_brig_evacuacion',nombre:'Brigada de Evacuación y Rescate'},
@@ -122,7 +127,7 @@ var IC={
  user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>',
  cam:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'};
 
-var S={tab:'emg',tabHist:[],filter:'Todos',session:null,posts:[],reports:[],users:[],groups:[],room:null,msgs:[],ver:null,health:null,fcm:'',upd:'',updState:'',sirena:false,R:{step:0},mode:'login',busy:false,cfg:null,adminQ:'',pollOpts:['',''],grpFilter:'Todos',media:{emerg:null,board:null,chat:null},pickSlot:'emerg',webhook:''};
+var S={tab:'emg',tabHist:[],filter:'Todos',session:null,posts:[],reports:[],users:[],groups:[],room:null,msgs:[],ver:null,health:null,fcm:'',upd:'',updState:'',sirena:false,globalSiren:null,lastRemoteActive:false,R:{step:0},mode:'login',busy:false,cfg:null,adminQ:'',pollOpts:['',''],grpFilter:'Todos',media:{emerg:null,board:null,chat:null},pickSlot:'emerg',webhook:''};
 var $=function(s){return document.querySelector(s)};
 function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function ls(k,v){try{if(v===undefined){return JSON.parse(localStorage.getItem(k))}localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
@@ -147,8 +152,116 @@ function normSub(p){
  if(p.rol==='seguridad')return s||'Subalterno de Seguridad';
  return s;
 }
+function userBrigs(p){
+ if(!p)return[];
+ var out=[];
+ if(Array.isArray(p.brigadas)){
+  p.brigadas.forEach(function(b){
+   var nb=LEGACY_BRIG[b]||b;
+   if(nb&&out.indexOf(nb)<0)out.push(nb);
+  });
+ }
+ var sa=LEGACY_BRIG[p.subArea]||p.subArea||'';
+ if(BRIG.indexOf(sa)>=0&&out.indexOf(sa)<0)out.unshift(sa);
+ return out;
+}
 
-/* ---------- Multimedia en Google Drive (Cero carga en Firebase) ---------- */
+/* ---------- Permisos ---------- */
+function me(){return S.session&&S.session.profile||{}}
+function rol(){return me().rol||'colaborador'}
+function canPub(){return['admin','brigadista','seguridad'].indexOf(rol())>=0||userBrigs(me()).length>0}
+function isAdm(){
+ var p=me();
+ return p.email===ADMIN_MAIL||(p.rol==='admin'&&ADM_AREAS.indexOf(p.subArea)>=0);
+}
+function canSiren(){
+ var p=me(),sub=normSub(p);
+ if(p.email===ADMIN_MAIL)return true;
+ if(p.rol==='seguridad'&&sub==='Jefe de Seguridad')return true;
+ if(p.rol==='admin'&&ADM_AREAS.indexOf(sub)>=0)return true;
+ return false;
+}
+function roleLabel(p){
+ var sub=normSub(p);
+ if(p.rol==='admin')return'Jefe / Admin'+(sub?' · '+sub:'');
+ if(p.rol==='seguridad')return sub==='Jefe de Seguridad'?'Jefe de Seguridad':'Subalterno de Seguridad';
+ if(p.rol==='brigadista')return'Brigadista';
+ return'Colaborador';
+}
+function tag(p){
+ var rl=roleLabel(p),brs=userBrigs(p);
+ if(p.rol==='brigadista')return brs.length?brs.join(' · '):'Brigadista';
+ if(brs.length)return rl+' · '+brs.join(' · ');
+ return rl;
+}
+function badgesHtml(p){
+ var brs=userBrigs(p);
+ var h='<span class="badge b">'+esc(roleLabel(p))+'</span>';
+ brs.forEach(function(b){h+='<span class="badge g">'+esc(b)+'</span>'});
+ return h;
+}
+
+/* ---------- Sirena Global (Todos los teléfonos) ---------- */
+function sirenAppliesToMe(gs){
+ if(!gs||!gs.destino||gs.destino==='indrhi_todos')return true;
+ var myTopic=TOPICS[me().ubicacion]||'indrhi_ed1';
+ return gs.destino===myTopic;
+}
+function checkGlobalSiren(){
+ if(!S.session)return;
+ fsGet('config/sirena').then(function(gs){
+  var prevGs=S.globalSiren;
+  S.globalSiren=gs;
+  var active=gs&&gs.activa===true;
+  var aid=gs&&gs.alertaId?String(gs.alertaId):'';
+  var ack=ls('indrhi.ackSirenId')||'';
+
+  if(active&&aid&&aid!==ack&&sirenAppliesToMe(gs)){
+   ls('indrhi.ackSirenId',aid);
+   br('testAlarm');
+   S.sirena=true;
+   if(S.tab==='emg')render();
+   toast('¡ALERTA DE EVACUACIÓN! Activada por '+(gs.activadaPor||'Jefatura / Administración'),'err');
+  }else if(!active&&S.lastRemoteActive){
+   br('stopAlarm');
+   S.sirena=false;
+   if(S.tab==='emg')render();
+   toast('Sirena general detenida','ok');
+  }else if(S.tab==='emg'&&JSON.stringify(prevGs)!==JSON.stringify(gs)){
+   render();
+  }
+  S.lastRemoteActive=active;
+ }).catch(function(){});
+}
+function broadcastSirenPush(alertaId,scope){
+ getWebhookUrl().then(function(wh){
+  if(!wh)return;
+  fsList('dispositivos','pageSize=300').then(function(devs){
+   var tokens=devs.filter(function(d){
+    if(!d.fcmToken)return false;
+    if(scope==='indrhi_todos')return true;
+    return d.topicEdificio===scope;
+   }).map(function(d){return d.fcmToken});
+   fetch(wh,{
+    method:'POST',
+    mode:'no-cors',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({
+     action:'siren',
+     secret:'INDRHI_ALERTA_2026',
+     alertaId:alertaId,
+     topic:scope,
+     titulo:'ALERTA DE EVACUACIÓN INDRHI',
+     activadaPor:me().nombre||'',
+     rol:tag(me()),
+     tokens:tokens
+    })
+   }).catch(function(){});
+  }).catch(function(){});
+ });
+}
+
+/* ---------- Multimedia en Google Drive ---------- */
 function clearMedia(slot){
  var m=S.media[slot];
  if(m&&m.previewUrl){try{URL.revokeObjectURL(m.previewUrl)}catch(e){}}
@@ -202,21 +315,14 @@ function compressImage(file){
 function blobToBase64(blob){
  return new Promise(function(resolve,reject){
   var r=new FileReader();
-  r.onload=function(){
-   var res=String(r.result||'');
-   var idx=res.indexOf(',');
-   resolve(idx>=0?res.slice(idx+1):res);
-  };
+  r.onload=function(){var res=String(r.result||''),idx=res.indexOf(',');resolve(idx>=0?res.slice(idx+1):res)};
   r.onerror=function(){reject(new Error('No se pudo leer el archivo'))};
   r.readAsDataURL(blob);
  });
 }
 function getWebhookUrl(){
  if(S.webhook)return Promise.resolve(S.webhook);
- return fsGet('config/notificaciones').then(function(c){
-  S.webhook=c.webhookUrl||'';
-  return S.webhook;
- }).catch(function(){return''});
+ return fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||'';return S.webhook}).catch(function(){return''});
 }
 function uploadMedia(slot,folder){
  var linkEl=$('#ml-'+slot);
@@ -243,25 +349,11 @@ function uploadMedia(slot,folder){
    return fetch(wh,{
     method:'POST',
     headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({
-     action:'upload',
-     secret:'INDRHI_ALERTA_2026',
-     folder:folder,
-     fileName:cleanName,
-     mimeType:ctype,
-     base64:b64
-    })
+    body:JSON.stringify({action:'upload',secret:'INDRHI_ALERTA_2026',folder:folder,fileName:cleanName,mimeType:ctype,base64:b64})
    });
-  }).then(function(r){
-   return r.json();
-  }).then(function(res){
+  }).then(function(r){return r.json()}).then(function(res){
    if(!res||!res.ok)throw new Error((res&&res.error)||'Error guardando en Google Drive');
-   var out={
-    url:item.type==='video'?res.previewUrl:res.imgUrl,
-    viewUrl:res.viewUrl,
-    type:item.type,
-    name:item.name
-   };
+   var out={url:item.type==='video'?res.previewUrl:res.imgUrl,viewUrl:res.viewUrl,type:item.type,name:item.name};
    clearMedia(slot);
    return out;
   });
@@ -301,9 +393,7 @@ function goBackStep(){
  return false;
 }
 window.handleAndroidBack=function(){return goBackStep()};
-window.addEventListener('popstate',function(){
- if(goBackStep())pushHist();
-});
+window.addEventListener('popstate',function(){if(goBackStep())pushHist()});
 
 /* ---------- Firestore ---------- */
 function toFS(v){if(v===null||v===undefined)return{nullValue:null};if(typeof v==='string')return{stringValue:v};if(typeof v==='boolean')return{booleanValue:v};if(typeof v==='number')return Math.floor(v)===v?{integerValue:String(v)}:{doubleValue:v};if(Array.isArray(v))return{arrayValue:{values:v.map(toFS)}};var f={};for(var k in v)f[k]=toFS(v[k]);return{mapValue:{fields:f}}}
@@ -328,24 +418,13 @@ function fsAdd(col,o,id){return http('POST',FS+'/'+col+(id?'?documentId='+encode
 function fsSet(p,o,mask){var q=mask?'?'+mask.map(function(m){return'updateMask.fieldPaths='+encodeURIComponent(m)}).join('&'):'';return http('PATCH',FS+'/'+p+q,{fields:toFields(o)},true)}
 
 /* ---------- Sesión ---------- */
-function saveSession(){var s=S.session;if(!s)return;var p=s.profile||{};var j=JSON.stringify({email:s.email,uid:s.uid,idToken:s.idToken,refreshToken:s.refreshToken,expiresAt:s.expiresAt,nombre:p.nombre||'',edificio:p.ubicacion||'',rol:p.rol||'colaborador',subArea:p.subArea||'',rolSolicitado:p.rolSolicitado||'',profile:p});try{localStorage.setItem('indrhi.authSession',j)}catch(e){}br('saveAuthSession',[j])}
+function saveSession(){var s=S.session;if(!s)return;var p=s.profile||{};var j=JSON.stringify({email:s.email,uid:s.uid,idToken:s.idToken,refreshToken:s.refreshToken,expiresAt:s.expiresAt,nombre:p.nombre||'',edificio:p.ubicacion||'',rol:p.rol||'colaborador',subArea:p.subArea||'',brigadas:userBrigs(p),profile:p});try{localStorage.setItem('indrhi.authSession',j)}catch(e){}br('saveAuthSession',[j])}
 function loadSession(){var j=br('getAuthSession'),l=null,o=null;try{l=localStorage.getItem('indrhi.authSession')}catch(e){}
  if(typeof j==='string'&&j&&j!=='null'){try{o=JSON.parse(j)}catch(e){o=null}}
  if(!o||!o.email){try{o=l?JSON.parse(l):null}catch(e){o=null}}
  if(!o||!o.email)return null;
- var p=o.profile||{};p.email=o.email;p.uid=o.uid;p.nombre=p.nombre||o.nombre||o.email.split('@')[0];p.ubicacion=p.ubicacion||o.edificio||UBIC[0];p.rol=p.rol||o.rol||'colaborador';p.subArea=p.subArea||o.subArea||'';if(o.rolSolicitado&&!p.rolSolicitado)p.rolSolicitado=o.rolSolicitado;
+ var p=o.profile||{};p.email=o.email;p.uid=o.uid;p.nombre=p.nombre||o.nombre||o.email.split('@')[0];p.ubicacion=p.ubicacion||o.edificio||UBIC[0];p.rol=p.rol||o.rol||'colaborador';p.subArea=p.subArea||o.subArea||'';p.brigadas=Array.isArray(p.brigadas)?p.brigadas:(Array.isArray(o.brigadas)?o.brigadas:userBrigs(p));
  o.profile=p;S.session=o;saveSession();return o}
-function me(){return S.session&&S.session.profile||{}}
-function rol(){return me().rol||'colaborador'}
-function canPub(){return['admin','brigadista','seguridad'].indexOf(rol())>=0}
-function isAdm(){var p=me();return p.rol==='admin'&&(p.subArea==='Tecnología'||p.subArea==='Recursos Humanos'||p.email===ADMIN_MAIL)}
-function tag(p){
- var sub=normSub(p);
- if(p.rol==='brigadista')return sub||'Brigadista';
- if(p.rol==='seguridad')return sub||'Seguridad';
- if(p.rol==='admin')return'Admin'+(sub?' · '+sub:'');
- return'Colaborador';
-}
 function authErr(m){var x={EMAIL_EXISTS:'Ese correo ya está registrado.',INVALID_LOGIN_CREDENTIALS:'Correo o contraseña incorrectos.',INVALID_PASSWORD:'Contraseña incorrecta.',EMAIL_NOT_FOUND:'No existe una cuenta con ese correo.',WEAK_PASSWORD:'La contraseña debe tener al menos 6 caracteres.'};
  for(var k in x)if(String(m).indexOf(k)===0)return x[k];return 'No se pudo completar: '+m}
 function doLogin(){
@@ -356,40 +435,47 @@ function doLogin(){
  S.busy=true;http('POST','https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='+cfg().apiKey,{email:e,password:p,returnSecureToken:true}).then(function(j){
   S.session={idToken:j.idToken,refreshToken:j.refreshToken,uid:j.localId,email:e,expiresAt:Date.now()+Number(j.expiresIn)*1000,profile:{email:e}};
   var uPath='usuarios/'+encodeURIComponent(e);
-  return fsGet(uPath).catch(function(){var pr={uid:j.localId,nombre:e.split('@')[0],email:e,ubicacion:UBIC[0],edificio:UBIC[0],rol:e===ADMIN_MAIL?'admin':'colaborador',subArea:e===ADMIN_MAIL?'Tecnología':''};return fsSet(uPath,pr).then(function(){return pr})})
+  return fsGet(uPath).catch(function(){var pr={uid:j.localId,nombre:e.split('@')[0],email:e,ubicacion:UBIC[0],edificio:UBIC[0],rol:e===ADMIN_MAIL?'admin':'colaborador',subArea:e===ADMIN_MAIL?'Tecnología':'',brigadas:[]};return fsSet(uPath,pr).then(function(){return pr})})
  }).then(function(pr){
   pr.ubicacion=pr.ubicacion||pr.edificio||UBIC[0];
+  pr.brigadas=userBrigs(pr);
   S.session.profile=pr;
   if(e===ADMIN_MAIL&&pr.rol!=='admin'){pr.rol='admin';pr.subArea=pr.subArea||'Tecnología';fsSet('usuarios/'+encodeURIComponent(e),pr,['rol','subArea'])}
   saveSession();start()
  }).catch(function(x){toast(authErr(x.message),'err')}).then(function(){S.busy=false})}
 function doReg(){
  if(S.busy)return;
- var n=$('#r-name').value.trim(),e=$('#r-mail').value.trim().toLowerCase(),p=$('#r-pass').value,u=$('#r-ub').value,r=$('#r-rol').value,s=$('#r-sub')?$('#r-sub').value:'';
- if(!n)return toast('Escribe tu nombre completo','err');if(!/@indrhi\.gob\.do$/.test(e))return toast('Solo se permiten correos @indrhi.gob.do','err');
+ var n=$('#r-name').value.trim(),e=$('#r-mail').value.trim().toLowerCase(),p=$('#r-pass').value,u=$('#r-ub').value,r=$('#r-rol').value;
+ var brigs=[].slice.call(document.querySelectorAll('.reg-brig:checked')).map(function(cb){return cb.value});
+ if(!n)return toast('Escribe tu nombre completo','err');
+ if(!/@indrhi\.gob\.do$/.test(e))return toast('Solo se permiten correos @indrhi.gob.do','err');
  if(p.length<6)return toast('La contraseña debe tener al menos 6 caracteres','err');
- if((r==='brigadista'||r==='seguridad'||r==='admin')&&!s)return toast('Selecciona tu '+(r==='admin'?'departamento':r==='seguridad'?'nivel en Seguridad':'brigada'),'err');
+ if(r==='brigadista'&&!brigs.length)return toast('Selecciona al menos una brigada','err');
  if(!cfg().apiKey)return toast('Sin conexión con la app: abre INDRHI Emergencias en el teléfono','err');
- var pr={nombre:n,email:e,ubicacion:u,edificio:u,rol:'colaborador',subArea:''};
- if(e===ADMIN_MAIL){pr.rol='admin';pr.subArea=s||'Tecnología'}
- else if(r==='brigadista'){pr.rol='brigadista';pr.subArea=s}
- else if(r==='seguridad'){pr.rol='seguridad';pr.subArea=s}
- else if(r==='admin'){pr.rolSolicitado='admin';pr.subArea=s}
+
+ var allowedRol=(r==='brigadista'||r==='seguridad')?r:'colaborador';
+ var subArea='';
+ if(allowedRol==='brigadista')subArea=brigs[0]||'';
+ else if(allowedRol==='seguridad')subArea='Subalterno de Seguridad';
+ else brigs=[];
+
+ var pr={nombre:n,email:e,ubicacion:u,edificio:u,rol:allowedRol,subArea:subArea,brigadas:brigs};
+ if(e===ADMIN_MAIL){pr.rol='admin';pr.subArea='Tecnología'}
  S.busy=true;http('POST','https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+cfg().apiKey,{email:e,password:p,returnSecureToken:true}).then(function(j){
   pr.uid=j.localId;S.session={idToken:j.idToken,refreshToken:j.refreshToken,uid:j.localId,email:e,expiresAt:Date.now()+Number(j.expiresIn)*1000,profile:pr};
-  return fsSet('usuarios/'+encodeURIComponent(e),pr)}).then(function(){saveSession();start();if(pr.rolSolicitado)toast('Solicitud de Administrador enviada. Un admin de Tecnología o RRHH debe aprobarla.','ok')}).catch(function(x){S.session=null;toast(authErr(x.message),'err')}).then(function(){S.busy=false})}
+  return fsSet('usuarios/'+encodeURIComponent(e),pr)}).then(function(){saveSession();start()}).catch(function(x){S.session=null;toast(authErr(x.message),'err')}).then(function(){S.busy=false})}
 function logout(){confirmM('Cerrar sesión','Dejarás de recibir avisos en este teléfono hasta que vuelvas a entrar.',function(){br('clearAuthSession');try{localStorage.removeItem('indrhi.authSession')}catch(e){}S.session=null;clearInterval(S.poll);render()},'blue')}
 
 /* ---------- Arranque ---------- */
 function readToken(){var r=brj('getFcmToken');var t=(r&&r.ok&&r.token)?r.token:(typeof r==='string'&&r.charAt(0)!=='{'?r:'');if(t){S.fcm=t;try{localStorage.setItem('indrhi.fcmToken',t)}catch(e){}}else if(!S.fcm){try{S.fcm=localStorage.getItem('indrhi.fcmToken')||''}catch(e){}}return S.fcm}
 function topics(){var t=TOPICS[me().ubicacion];br('subscribeTopic',['indrhi_todos']);for(var k in TOPICS){if(TOPICS[k]===t)br('subscribeTopic',[t]);else br('unsubscribeTopic',[TOPICS[k]])}}
 function syncDevice(){if(!S.session||!S.fcm)return;var cx=brj('getContext')||{},p=me(),devId=getDevId(),mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android';
- fsSet('dispositivos/'+encodeURIComponent(devId),{deviceId:devId,nombre:p.nombre||'',correo:S.session.email,rol:p.rol||'colaborador',subArea:normSub(p),edificio:p.ubicacion||UBIC[0],topicEdificio:TOPICS[p.ubicacion]||'indrhi_ed1',fcmToken:S.fcm,modelo:mod,versionApp:String(cx.versionName||'1.0.0'),actualizadoIso:new Date().toISOString()}).catch(function(){})}
-function start(){S.tab='emg';S.tabHist=[];pushHist();topics();readToken();loadAll();syncDevice();render();syncQ();
- clearInterval(S.poll);S.poll=setInterval(function(){if(Date.now()-(S.lb||0)>30000){S.lb=Date.now();bg()}S.sirena=br('isAlarmPlaying')===true;if(S.tab==='emg')updSiren();if(S.tab==='chat'&&S.room)loadMsgs()},4000)}
+ fsSet('dispositivos/'+encodeURIComponent(devId),{deviceId:devId,nombre:p.nombre||'',correo:S.session.email,rol:p.rol||'colaborador',subArea:normSub(p),brigadas:userBrigs(p),edificio:p.ubicacion||UBIC[0],topicEdificio:TOPICS[p.ubicacion]||'indrhi_ed1',fcmToken:S.fcm,modelo:mod,versionApp:String(cx.versionName||'1.0.0'),actualizadoIso:new Date().toISOString()}).catch(function(){})}
+function start(){S.tab='emg';S.tabHist=[];pushHist();topics();readToken();loadAll();syncDevice();checkGlobalSiren();render();syncQ();
+ clearInterval(S.poll);S.poll=setInterval(function(){if(Date.now()-(S.lb||0)>30000){S.lb=Date.now();bg()}S.sirena=br('isAlarmPlaying')===true;if(S.tab==='emg')updSiren();checkGlobalSiren();if(S.tab==='chat'&&S.room)loadMsgs()},4000)}
 function bg(){if(!S.session)return;Promise.resolve(ensure()).then(syncQ)}
 function loadAll(){
- fsGet('usuarios/'+encodeURIComponent(S.session.email)).then(function(p){if(p&&p.email&&S.session){p.ubicacion=p.ubicacion||p.edificio||UBIC[0];S.session.profile=Object.assign({},S.session.profile,p);saveSession();syncDevice();render()}}).catch(function(){});
+ fsGet('usuarios/'+encodeURIComponent(S.session.email)).then(function(p){if(p&&p.email&&S.session){p.ubicacion=p.ubicacion||p.edificio||UBIC[0];p.brigadas=userBrigs(p);S.session.profile=Object.assign({},S.session.profile,p);saveSession();syncDevice();render()}}).catch(function(){});
  fsGet('config/version').then(function(v){S.ver=v;render()}).catch(function(){});
  fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||''}).catch(function(){});
  fsList('comunicados','orderBy=creado%20desc&pageSize=60').then(function(a){S.posts=a;if(S.tab==='board')render()}).catch(function(){});
@@ -399,7 +485,7 @@ function loadAll(){
  S.health=brj('getHealth');S.sirena=br('isAlarmPlaying')===true}
 window.onFcmToken=function(t){if(!t)return;S.fcm=t;try{localStorage.setItem('indrhi.fcmToken',t)}catch(e){}if(S.tab==='me')render();syncDevice()};
 window.onUpdateDownloadState=function(st,d){S.updState=st;S.upd=d||st;if(S.tab==='emg'||S.tab==='me')render()};
-window.refreshHealth=function(){S.health=brj('getHealth');if(S.tab==='me')render()};
+window.refreshHealth=function(){S.health=brj('getHealth');checkGlobalSiren();if(S.tab==='me')render()};
 
 /* ---------- Reportes ---------- */
 function queue(){return ls('indrhi.reportes')||[]}
@@ -410,7 +496,7 @@ function sendReport(o){
  uploadMedia('emerg','Reportes').then(function(m){
   if(m){o.mediaUrl=m.url;o.mediaViewUrl=m.viewUrl;o.mediaType=m.type;o.mediaName=m.name}
   var cx=brj('getContext')||{},mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android',now=new Date().toISOString();
-  o.id='r'+Date.now();o.uid=S.session.uid;o.email=S.session.email;o.correo=S.session.email;o.nombre=me().nombre||'';o.rol=rol();o.subArea=normSub(me());o.ubicacion=me().ubicacion||'';o.edificioAsignado=me().ubicacion||'';o.fcmToken=S.fcm||'';o.deviceId=getDevId();o.dispositivo=mod;o.creado=now;o.fechaIso=now;o.synced=false;
+  o.id='r'+Date.now();o.uid=S.session.uid;o.email=S.session.email;o.correo=S.session.email;o.nombre=me().nombre||'';o.rol=rol();o.subArea=tag(me());o.ubicacion=me().ubicacion||'';o.edificioAsignado=me().ubicacion||'';o.fcmToken=S.fcm||'';o.deviceId=getDevId();o.dispositivo=mod;o.creado=now;o.fechaIso=now;o.synced=false;
   var q=queue();q.unshift(o);ls('indrhi.reportes',q.slice(0,50));render();syncQ();toast('Reporte enviado','ok');
  }).catch(function(err){
   clearMedia('emerg');
@@ -440,7 +526,7 @@ function authView(){
  var l=S.mode==='login';
  return'<div class="auth"><h1>INDRHI Emergencias</h1><p class="mut">Acceso para personal del Instituto Nacional de Recursos Hidráulicos.</p><div class="tabs"><button class="'+(l?'on':'')+'" data-act="mode" data-a="login">Iniciar sesión</button><button class="'+(l?'':'on')+'" data-act="mode" data-a="reg">Registrarse</button></div>'+(l?
  '<label>Correo institucional</label><input id="a-mail" type="email" autocomplete="username" placeholder="usuario@indrhi.gob.do"><label>Contraseña</label><input id="a-pass" type="password" autocomplete="current-password"><button class="btn" data-act="login">Entrar</button>':
- '<label>Nombre completo</label><input id="r-name" autocomplete="name"><label>Correo institucional</label><input id="r-mail" type="email" placeholder="usuario@indrhi.gob.do"><label>Contraseña (mínimo 6)</label><input id="r-pass" type="password" autocomplete="new-password"><label>Ubicación habitual</label><select id="r-ub">'+UBIC.map(function(u){return'<option>'+u+'</option>'}).join('')+'</select><label>Rol</label><select id="r-rol" data-chg="rol"><option value="colaborador">Colaborador General</option><option value="brigadista">Brigadista</option><option value="seguridad">Seguridad</option><option value="admin">Administrador</option></select><div id="r-subw"></div><button class="btn" data-act="reg">Crear cuenta</button>')+'</div>'}
+ '<label>Nombre completo</label><input id="r-name" autocomplete="name"><label>Correo institucional</label><input id="r-mail" type="email" placeholder="usuario@indrhi.gob.do"><label>Contraseña (mínimo 6)</label><input id="r-pass" type="password" autocomplete="new-password"><label>Ubicación habitual</label><select id="r-ub">'+UBIC.map(function(u){return'<option>'+u+'</option>'}).join('')+'</select><label>Rol</label><select id="r-rol" data-chg="rol"><option value="colaborador">Colaborador General</option><option value="brigadista">Brigadista</option><option value="seguridad">Seguridad</option></select><div id="r-subw"></div><button class="btn" data-act="reg">Crear cuenta</button>')+'</div>'}
 
 function emgView(){
  var h='',v=S.ver;
@@ -452,7 +538,15 @@ function emgView(){
    h+='<div class="banner"><b>Nueva versión '+esc(remName||v.latestVersionCode)+'</b><div style="font-size:13px">'+esc(v.releaseNotes||'')+'</div>'+(S.upd?'<div style="font-size:13px;margin-top:6px">'+esc(S.upd)+'</div>':'')+'<button class="btn" data-act="upd">'+(ready?'Instalar ahora':'Actualizar')+'</button></div>';
   }
  }
- h+='<div class="card"><div class="siren"><div id="dot" class="dot '+(S.sirena?'on':'')+'"></div><div><h2 id="stx" style="margin:0">'+(S.sirena?'Sirena activa al 100%':'Sirena detenida')+'</h2><span class="mut">Estado en este teléfono</span></div></div><div class="row" style="margin-top:12px">'+(canPub()?'<button class="btn red" data-act="siren">Activar sirena roja</button>':'')+'<button class="btn gray" data-act="stop">Detener sirena</button></div></div>';
+ var gs=S.globalSiren,gAct=gs&&gs.activa===true,isOn=S.sirena||gAct;
+ var stSub=gAct?('Activada para '+(gs.destino==='indrhi_ed1'?'Edificio ED1':gs.destino==='indrhi_ed2'?'Edificio ED2':'todos los edificios')+(gs.activadaPor?' · '+gs.activadaPor:'')):'Sin alarma general activa';
+ h+='<div class="card"><div class="siren"><div id="dot" class="dot '+(isOn?'on':'')+'"></div><div><h2 id="stx" style="margin:0">'+(isOn?'Sirena de evacuación activa':'Sirena en espera')+'</h2><span class="mut">'+esc(stSub)+'</span></div></div>';
+ if(canSiren()){
+  h+='<div style="margin-top:12px"><label>Alcance de activación</label><select id="siren-scope" style="margin-bottom:8px"><option value="indrhi_todos">Todos los edificios (Todos los teléfonos)</option><option value="indrhi_ed1">Solo Edificio ED1</option><option value="indrhi_ed2">Solo Edificio ED2</option></select><div class="row"><button class="btn red" data-act="siren">Activar sirena en todos</button>'+(isOn?'<button class="btn gray" data-act="stopall">Detener en todos</button>':'')+'</div></div>';
+ }else if(isOn){
+  h+='<div style="margin-top:12px"><button class="btn gray" data-act="stop">Silenciar en este teléfono</button></div>';
+ }
+ h+='</div>';
  h+='<div class="row"><button class="btn green" data-act="quick" data-a="safe">Estoy a salvo</button><button class="btn red" data-act="quick" data-a="help">Necesito ayuda</button></div>';
  h+='<div class="card" style="margin-top:12px"><h2>Reporte rápido</h2>'+quickRep()+'</div>';
  var q=queue().filter(function(r){return r.email===S.session.email}).slice(0,5);
@@ -465,16 +559,16 @@ function quickRep(){var R=S.R,o,t;
  else{t='Paso 3 de 3: ¿Cómo estás?';o=['Estoy bien','Herido/a','Atrapado/a','Hay otras personas afectadas']}
  return'<p class="mut">'+t+'</p>'+o.map(function(x){return'<button class="opt" data-act="rstep" data-a="'+esc(x)+'">'+esc(x)+'</button>'}).join('')+(R.step?'<button class="btn gray sm" data-act="rback">← Paso anterior</button>':'')}
 
-function updSiren(){var d=$('#dot'),s=$('#stx');if(d)d.className='dot'+(S.sirena?' on':'');if(s)s.textContent=S.sirena?'Sirena activa al 100%':'Sirena detenida'}
+function updSiren(){var d=$('#dot'),s=$('#stx'),isOn=S.sirena||(S.globalSiren&&S.globalSiren.activa===true);if(d)d.className='dot'+(isOn?' on':'');if(s)s.textContent=isOn?'Sirena de evacuación activa':'Sirena en espera'}
 
 function visible(p){
- var m=me(),sub=normSub(m);
+ var m=me(),sub=normSub(m),brs=userBrigs(m);
  if(m.rol==='admin')return true;
  var d=p.destino||'Todos';
  if(d==='Todos')return true;
  if(d===m.ubicacion)return true;
- if(d==='Brigadistas (Todas)'||d==='Brigadistas')return m.rol==='brigadista';
- if(BRIG.indexOf(d)>=0)return m.rol==='brigadista'&&sub===d;
+ if(d==='Brigadistas (Todas)'||d==='Brigadistas')return m.rol==='brigadista'||brs.length>0;
+ if(BRIG.indexOf(d)>=0)return brs.indexOf(d)>=0;
  if(d==='Seguridad (Todos)'||d==='Seguridad')return m.rol==='seguridad';
  if(d==='Jefe de Seguridad')return m.rol==='seguridad'&&sub==='Jefe de Seguridad';
  if(d==='Subalternos de Seguridad')return m.rol==='seguridad'&&sub==='Subalterno de Seguridad';
@@ -528,18 +622,18 @@ function boardView(){
  return h}
 
 function getSegmentedRooms(){
- var m=me(),sub=normSub(m),adm=m.rol==='admin';
+ var m=me(),sub=normSub(m),adm=m.rol==='admin',brs=userBrigs(m);
  var gen=[{id:'grupo_general',nombre:'Chat General INDRHI',tag:'Todos'}];
  if(adm||m.ubicacion===UBIC[0])gen.push({id:'grupo_ed1',nombre:'Edificio ED1',tag:'Edificio'});
  if(adm||m.ubicacion===UBIC[1])gen.push({id:'grupo_ed2',nombre:'Edificio ED2',tag:'Edificio'});
 
  var esp=[];
- if(adm||m.rol==='brigadista'){
+ if(adm||m.rol==='brigadista'||brs.length>0){
   esp.push({id:'grupo_brigadistas',nombre:'Brigadistas INDRHI (General)',tag:'Todas las brigadas'});
   if(adm){
    BRIG.forEach(function(b){var r=BRIG_ROOMS[b];if(r)esp.push({id:r.id,nombre:r.nombre,tag:'Brigada'})});
-  }else if(BRIG_ROOMS[sub]){
-   esp.push({id:BRIG_ROOMS[sub].id,nombre:BRIG_ROOMS[sub].nombre,tag:'Tu brigada'});
+  }else{
+   brs.forEach(function(b){var r=BRIG_ROOMS[b];if(r)esp.push({id:r.id,nombre:r.nombre,tag:'Tu brigada'})});
   }
  }
  if(adm||m.rol==='seguridad'){
@@ -585,7 +679,7 @@ function msgsHtml(){return S.msgs.length?S.msgs.map(function(m){var own=m.email=
 function loadMsgs(){if(!S.room)return;var id=S.room.id;fsList('chat_grupos/'+id+'/mensajes','orderBy=creado%20desc&pageSize=60').then(function(a){if(!S.room||S.room.id!==id)return;var n=a.reverse(),ch=JSON.stringify(n)!==JSON.stringify(S.msgs);S.msgs=n;var b=$('#msgs');if(b&&ch){var bot=b.scrollTop+b.clientHeight>=b.scrollHeight-40;b.innerHTML=msgsHtml();if(bot)b.scrollTop=b.scrollHeight}}).catch(function(){})}
 
 function meView(){
- var p=me(),h='<div class="card"><h2>'+esc(p.nombre||'')+'</h2><div class="mut">'+esc(p.email||'')+'</div><div class="wrap" style="margin:8px 0"><span class="badge b">'+esc(tag(p))+'</span>'+(p.rolSolicitado?'<span class="badge a">Administrador pendiente de aprobación</span>':'')+'</div><label>Ubicación habitual</label><select data-chg="ub">'+UBIC.map(function(u){return'<option '+(u===p.ubicacion?'selected':'')+'>'+u+'</option>'}).join('')+'</select><button class="btn gray" data-act="logout">Cerrar sesión</button></div>';
+ var p=me(),h='<div class="card"><h2>'+esc(p.nombre||'')+'</h2><div class="mut">'+esc(p.email||'')+'</div><div class="wrap" style="margin:8px 0">'+badgesHtml(p)+'</div><label>Ubicación habitual</label><select data-chg="ub">'+UBIC.map(function(u){return'<option '+(u===p.ubicacion?'selected':'')+'>'+u+'</option>'}).join('')+'</select><button class="btn gray" data-act="logout">Cerrar sesión</button></div>';
  var H=S.health,rows='';
  if(H&&typeof H==='object'){var LB={notif:['Notificaciones','openNotificationSettings'],dnd:['No molestar (permitido)','openDndSettings'],full:['Alertas a pantalla completa','openFullScreenSettings'],batt:['Sin ahorro de batería','openBatterySettings'],inst:['Instalar actualizaciones','openUnknownSourcesSettings']};
   for(var k in H){if(typeof H[k]!=='boolean')continue;var key=/notif/i.test(k)?'notif':/dnd|disturb/i.test(k)?'dnd':/full/i.test(k)?'full':/batt|optim/i.test(k)?'batt':/install|unknown/i.test(k)?'inst':null;var ok=H[k];
@@ -595,18 +689,45 @@ function meView(){
  if(isAdm())h+=adminView();
  return h}
 
+function currentComboVal(u){
+ var sa=normSub(u);
+ if(u.rol==='admin'){
+  if(ADM_AREAS.indexOf(sa)>=0)return'admin|'+sa;
+  return'admin|Administración';
+ }
+ if(u.rol==='seguridad'){
+  return sa==='Jefe de Seguridad'?'seguridad|Jefe de Seguridad':'seguridad|Subalterno de Seguridad';
+ }
+ if(u.rol==='brigadista')return'brigadista|';
+ return'colaborador|';
+}
+
 function adminView(){
- var q=S.adminQ.toLowerCase(),us=S.users.filter(function(u){return!q||((u.nombre||'')+(u.email||'')+(u.subArea||'')).toLowerCase().indexOf(q)>=0}),cx=brj('getContext')||{},nextC=Number(cx.versionCode||2)+1;
- var subOpts='<option value="">Sin sub-área</option>'+
-  '<optgroup label="Brigadas">'+BRIG.map(function(s){return'<option value="'+esc(s)+'">'+esc(s)+'</option>'}).join('')+'</optgroup>'+
-  '<optgroup label="Seguridad">'+SEG_NIVEL.map(function(s){return'<option value="'+esc(s)+'">'+esc(s)+'</option>'}).join('')+'</optgroup>'+
-  '<optgroup label="Administración"><option value="Tecnología">Tecnología</option><option value="Recursos Humanos">Recursos Humanos</option></optgroup>';
- var h='<div class="card"><h2>Administración de usuarios</h2><input id="aq" placeholder="Buscar por nombre, correo o brigada" value="'+esc(S.adminQ)+'" oninput="window._onAq(this.value)">';
- us.forEach(function(u){var sa=normSub(u),uidSafe=esc(u.id);
-  var selSub=subOpts.replace('value="'+esc(sa)+'"','value="'+esc(sa)+'" selected');
-  h+='<div class="card" style="box-shadow:none;border:1px solid var(--bd)"><b>'+esc(u.nombre)+'</b><div class="mut">'+esc(u.email)+'</div><div class="wrap" style="margin:6px 0"><span class="badge b">'+esc(tag(u))+'</span>'+(u.rolSolicitado?'<span class="badge a">Pide: Administrador</span>':'')+'</div>'+
-  (u.rolSolicitado?'<button class="btn green sm" data-act="approve" data-a="'+uidSafe+'">Aprobar administrador</button> ':'')+
-  '<div class="row"><select data-role-for="'+uidSafe+'">'+['colaborador','brigadista','seguridad','admin'].map(function(r){return'<option '+(r===u.rol?'selected':'')+'>'+r+'</option>'}).join('')+'</select><select data-sub-for="'+uidSafe+'">'+selSub+'</select></div><button class="btn sm" data-act="saverole" data-a="'+uidSafe+'">Guardar rol</button></div>'});
+ var q=S.adminQ.toLowerCase(),us=S.users.filter(function(u){return!q||((u.nombre||'')+(u.email||'')+(u.subArea||'')+userBrigs(u).join(' ')).toLowerCase().indexOf(q)>=0}),cx=brj('getContext')||{},nextC=Number(cx.versionCode||2)+1;
+ var roleChoices=[
+  ['colaborador|','Colaborador General'],
+  ['brigadista|','Brigadista'],
+  ['seguridad|Subalterno de Seguridad','Seguridad · Subalterno'],
+  ['seguridad|Jefe de Seguridad','Jefe de Seguridad (Exclusivo Admin)'],
+  ['admin|Administración','Jefe / Admin · Administración'],
+  ['admin|Tecnología','Jefe / Admin · Tecnología'],
+  ['admin|Recursos Humanos','Jefe / Admin · Recursos Humanos']
+ ];
+ var h='<div class="card"><h2>Administración de usuarios y roles</h2><p class="mut" style="margin-top:-4px">Solo aquí puedes otorgar jefaturas y asignar una o varias brigadas por persona.</p><input id="aq" placeholder="Buscar por nombre, correo o brigada" value="'+esc(S.adminQ)+'" oninput="window._onAq(this.value)">';
+ us.forEach(function(u){
+  var uidSafe=esc(u.id),curVal=currentComboVal(u),uBrs=userBrigs(u);
+  var selHtml='<select data-combo-for="'+uidSafe+'">'+roleChoices.map(function(rc){
+   return'<option value="'+esc(rc[0])+'"'+(rc[0]===curVal?' selected':'')+'>'+esc(rc[1])+'</option>';
+  }).join('')+'</select>';
+  var brigChecks='<div class="chk-list">'+BRIG.map(function(b){
+   var chk=uBrs.indexOf(b)>=0?' checked':'';
+   return'<label class="chk-item"><input type="checkbox" class="adm-brig" data-brig-for="'+uidSafe+'" value="'+esc(b)+'"'+chk+'><span>'+esc(b)+'</span></label>';
+  }).join('')+'</div>';
+  h+='<div class="card" style="box-shadow:none;border:1px solid var(--bd)"><b>'+esc(u.nombre)+'</b><div class="mut">'+esc(u.email)+'</div><div class="wrap" style="margin:6px 0">'+badgesHtml(u)+'</div>'+
+  '<label>Cargo / Rol principal</label>'+selHtml+
+  '<label>Brigadas asignadas (puedes marcar una o varias)</label>'+brigChecks+
+  '<button class="btn sm" data-act="saverole" data-a="'+uidSafe+'">Guardar rol y brigadas</button></div>';
+ });
  h+='</div><div class="card"><h2>Google Drive y Correos (Apps Script)</h2><label>URL del webhook (Google Apps Script)</label><input id="wh" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.webhook||'')+'"><button class="btn" data-act="savewh">Guardar URL</button></div>';
  h+='<div class="card"><h2>Publicar actualización (OTA)</h2><label>Código de versión</label><input id="v-code" type="number" value="'+nextC+'"><label>Nombre de versión</label><input id="v-name" placeholder="Ej. 1.3.0"><label>URL del APK</label><input id="v-url" type="url" value="'+DEFAULT_APK_URL+'"><label>Notas</label><textarea id="v-notes" rows="3"></textarea><button class="btn amber" data-act="pubver">Publicar versión</button></div>';
  return h}
@@ -630,7 +751,7 @@ function renderGroupMembersList(){
  var f=S.grpFilter||'Todos';
  var list=S.users.filter(function(u){
   if(u.email===S.session.email)return false;
-  if(f==='Brigadistas')return u.rol==='brigadista';
+  if(f==='Brigadistas')return u.rol==='brigadista'||userBrigs(u).length>0;
   if(f==='Seguridad')return u.rol==='seguridad';
   if(f==='ED1')return u.ubicacion===UBIC[0];
   if(f==='ED2')return u.ubicacion===UBIC[1];
@@ -653,8 +774,46 @@ var A={
  pickmedia:function(a){S.pickSlot=a||'emerg';$('#global-file').click()},
  clrmedia:function(a){clearMedia(a);refreshMediaSlotUI(a)},
  viewimg:function(a,el){var v=el.getAttribute('data-v')||a;openModal('<img src="'+esc(a)+'" style="width:100%;border-radius:12px;display:block"><div class="row" style="margin-top:12px"><a class="btn" style="text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center" href="'+esc(v)+'" target="_blank" rel="noopener">Ver / Guardar en Drive</a><button class="btn gray" data-act="cancel">Cerrar</button></div>',true)},
- siren:function(){confirmM('¿Activar la sirena roja?','Sonará la alarma de evacuación al 100% en este teléfono. Úsala solo en una emergencia real.',function(){br('testAlarm');S.sirena=true;render();toast('Sirena activada','ok')})},
- stop:function(){br('stopAlarm');S.sirena=false;render();toast('Sirena detenida','ok')},
+ siren:function(){
+  if(!canSiren())return toast('No tienes permiso para activar la sirena general','err');
+  var scEl=$('#siren-scope'),scope=scEl?scEl.value:'indrhi_todos';
+  var scopeTxt=scope==='indrhi_ed1'?'el Edificio ED1':scope==='indrhi_ed2'?'el Edificio ED2':'TODOS los teléfonos de la institución';
+  confirmM('¿Activar sirena en '+scopeTxt+'?','Sonará la alarma roja al 100% en todos los teléfonos del área seleccionada. Úsala solo en una emergencia real.',function(){
+   var aid='alm_'+Date.now();
+   ls('indrhi.ackSirenId',aid);
+   br('testAlarm');
+   S.sirena=true;
+   var payload={activa:true,alertaId:aid,destino:scope,activadaPor:me().nombre||'',rol:tag(me()),actualizadoIso:new Date().toISOString()};
+   S.globalSiren=payload;
+   S.lastRemoteActive=true;
+   render();
+   fsSet('config/sirena',payload).then(function(){
+    toast('Sirena general activada en '+scopeTxt,'ok');
+    broadcastSirenPush(aid,scope);
+   }).catch(function(x){
+    toast('Sirena local activada, error al sincronizar: '+x.message,'err');
+   });
+  });
+ },
+ stopall:function(){
+  if(!canSiren())return;
+  br('stopAlarm');
+  S.sirena=false;
+  var payload={activa:false,alertaId:(S.globalSiren&&S.globalSiren.alertaId)||'',destino:(S.globalSiren&&S.globalSiren.destino)||'indrhi_todos',detenidaPor:me().nombre||'',actualizadoIso:new Date().toISOString()};
+  S.globalSiren=payload;
+  S.lastRemoteActive=false;
+  render();
+  fsSet('config/sirena',payload).then(function(){
+   toast('Sirena detenida en todos los teléfonos','ok');
+  }).catch(function(){});
+ },
+ stop:function(){
+  br('stopAlarm');
+  S.sirena=false;
+  if(S.globalSiren&&S.globalSiren.alertaId)ls('indrhi.ackSirenId',S.globalSiren.alertaId);
+  render();
+  toast('Sirena silenciada en este teléfono','ok');
+ },
  quick:function(a){var s=a==='safe';confirmM(s?'¿Confirmas que estás a salvo?':'¿Confirmas que necesitas ayuda?','Se enviará un reporte con tu nombre y ubicación a Seguridad y Brigadas. Evita falsas alarmas.',function(){sendReport({tipo:s?'Estoy a salvo':'Necesito ayuda',lugar:me().ubicacion,estado:s?'A salvo':'Necesito ayuda'})},s?'green':'red',!s)},
  rstep:function(a){var R=S.R;if(R.step===0){R.tipo=a;R.step=1;pushHist()}else if(R.step===1){R.lugar=a;R.step=2;pushHist()}else{R.estado=a;confirmM('¿Enviar este reporte?',R.tipo+' · '+R.lugar+' · '+a,function(){var o={tipo:R.tipo,lugar:R.lugar,estado:R.estado};S.R={step:0};sendReport(o)},'blue',true);return}render()},
  rback:function(){S.R.step=Math.max(0,S.R.step-1);render()},
@@ -725,24 +884,40 @@ var A={
  bridge:function(a){br(a)},health:function(){S.health=brj('getHealth');render()},
  copy:function(){if(!S.fcm)return toast('Aún no hay token');(navigator.clipboard?navigator.clipboard.writeText(S.fcm):Promise.reject()).then(function(){toast('Token copiado','ok')}).catch(function(){toast('No se pudo copiar','err')})},
  fcm:function(){var t=readToken();render();toast(t?'Token actualizado':'Sin token disponible')},
- approve:function(a){var u=S.users.filter(function(x){return x.id===a})[0];if(!u)return;confirmM('¿Aprobar como administrador?',u.nombre+' pasará a administrar '+(u.subArea||'')+'.',function(){saveRole(a,'admin',u.subArea||'')},'green')},
- saverole:function(a){var rEl=document.querySelector('[data-role-for="'+a+'"]'),sEl=document.querySelector('[data-sub-for="'+a+'"]');if(!rEl)return;var r=rEl.value,s=sEl?sEl.value:'';confirmM('¿Cambiar el rol?','Nuevo rol: '+r+(s?' · '+s:''),function(){saveRole(a,r,s)},'blue')},
+ saverole:function(a){
+  var cEl=document.querySelector('[data-combo-for="'+a+'"]');
+  if(!cEl)return;
+  var parts=cEl.value.split('|'),r=parts[0],s=parts[1]||'';
+  var brs=[].slice.call(document.querySelectorAll('.adm-brig[data-brig-for="'+a+'"]:checked')).map(function(cb){return cb.value});
+  if(r==='brigadista'&&!brs.length)return toast('Marca al menos una brigada para el rol Brigadista','err');
+  if(r==='brigadista')s=brs[0]||'';
+  var desc=roleLabel({rol:r,subArea:s})+(brs.length?' · '+brs.join(', '):'');
+  confirmM('¿Guardar cambios de rol?',desc,function(){saveRole(a,r,s,brs)},'blue');
+ },
  savewh:function(){var u=$('#wh').value.trim();fsSet('config/notificaciones',{webhookUrl:u},['webhookUrl']).then(function(){S.webhook=u;toast('URL guardada','ok')}).catch(function(x){toast('No se pudo guardar: '+x.message,'err')})},
  pubver:function(){var c=Number($('#v-code').value),n=$('#v-name').value.trim(),u=$('#v-url').value.trim();if(!c||!n||!u)return toast('Completa código, nombre y URL','err');
   confirmM('¿Publicar la versión '+n+'?','Todos los teléfonos verán el aviso de actualización.',function(){fsSet('config/version',{latestVersionCode:c,latestVersionName:n,apkUrl:u,releaseNotes:$('#v-notes').value.trim(),actualizadoIso:new Date().toISOString()}).then(function(){toast('Versión publicada','ok');loadAll()}).catch(function(x){toast('No se pudo publicar: '+x.message,'err')})},'amber')}
 };
 
-function saveRole(id,r,s){fsSet('usuarios/'+encodeURIComponent(id),{rol:r,subArea:s,rolSolicitado:null},['rol','subArea','rolSolicitado']).then(function(){var u=S.users.filter(function(x){return x.id===id})[0];if(u){u.rol=r;u.subArea=s;delete u.rolSolicitado}toast('Rol actualizado','ok');render()}).catch(function(x){toast('No se pudo guardar: '+x.message,'err')})}
+function saveRole(id,r,s,brs){
+ var cleanBrs=Array.isArray(brs)?brs:[];
+ fsSet('usuarios/'+encodeURIComponent(id),{rol:r,subArea:s,brigadas:cleanBrs,rolSolicitado:null},['rol','subArea','brigadas','rolSolicitado']).then(function(){
+  var u=S.users.filter(function(x){return x.id===id})[0];
+  if(u){u.rol=r;u.subArea=s;u.brigadas=cleanBrs;delete u.rolSolicitado}
+  toast('Rol y brigadas actualizados','ok');
+  render();
+ }).catch(function(x){toast('No se pudo guardar: '+x.message,'err')});
+}
 function loadWh(){fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||'';if(S.tab==='me'&&isAdm()&&!document.activeElement.id)render()}).catch(function(){})}
 
 function notify(o){getWebhookUrl().then(function(wh){if(!wh)return;
  var d=o.destino,to=S.users.filter(function(u){
-  var sub=normSub(u);
+  var sub=normSub(u),brs=userBrigs(u);
   if(d==='Todos')return true;
   if(d==='Edificio ED1')return u.ubicacion===UBIC[0];
   if(d==='Edificio ED2')return u.ubicacion===UBIC[1];
-  if(d==='Brigadistas (Todas)'||d==='Brigadistas')return u.rol==='brigadista';
-  if(BRIG.indexOf(d)>=0)return u.rol==='brigadista'&&sub===d;
+  if(d==='Brigadistas (Todas)'||d==='Brigadistas')return u.rol==='brigadista'||brs.length>0;
+  if(BRIG.indexOf(d)>=0)return brs.indexOf(d)>=0;
   if(d==='Seguridad (Todos)'||d==='Seguridad')return u.rol==='seguridad';
   if(d==='Jefe de Seguridad')return u.rol==='seguridad'&&sub==='Jefe de Seguridad';
   if(d==='Subalternos de Seguridad')return u.rol==='seguridad'&&sub==='Subalterno de Seguridad';
@@ -750,13 +925,15 @@ function notify(o){getWebhookUrl().then(function(wh){if(!wh)return;
  }).map(function(u){return u.email});
  if(!to.length)return;fetch(wh,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret:'INDRHI_ALERTA_2026',tipo:o.tipo,titulo:o.titulo,descripcion:o.descripcion,fechaEvento:o.fecha||'',fecha:o.fecha||'',enlace:o.enlace||'',destino:d,autor:o.autor,emails:to,destinatarios:to})}).then(function(){toast('Correos enviados a '+to.length+' personas','ok')}).catch(function(){toast('No se pudieron enviar los correos','err')})})}
 
-function subw(){var r=$('#r-rol'),w=$('#r-subw');if(!r||!w)return;var v=r.value;
+function subw(){
+ var r=$('#r-rol'),w=$('#r-subw');if(!r||!w)return;var v=r.value;
+ var listHtml='<div class="chk-list">'+BRIG.map(function(b){
+  return'<label class="chk-item"><input type="checkbox" class="reg-brig" value="'+esc(b)+'"><span>'+esc(b)+'</span></label>';
+ }).join('')+'</div>';
  if(v==='brigadista'){
-  w.innerHTML='<label>Brigada asignada</label><select id="r-sub">'+BRIG.map(function(b){return'<option>'+esc(b)+'</option>'}).join('')+'</select>';
+  w.innerHTML='<label>¿A cuál(es) brigada(s) perteneces? (Puedes marcar varias)</label>'+listHtml;
  }else if(v==='seguridad'){
-  w.innerHTML='<label>Nivel en Seguridad</label><select id="r-sub"><option value="Subalterno de Seguridad">Subalterno de Seguridad</option><option value="Jefe de Seguridad">Jefe de Seguridad</option></select>';
- }else if(v==='admin'){
-  w.innerHTML='<label>Departamento</label><select id="r-sub"><option>Tecnología</option><option>Recursos Humanos</option></select><p class="mut">Un administrador de Tecnología o RRHH debe aprobar tu solicitud. Mientras tanto tendrás rol de colaborador.</p>';
+  w.innerHTML='<p class="mut" style="margin:2px 0 8px">Ingresarás como <b>Subalterno de Seguridad</b>. El rango de Jefe de Seguridad solo puede asignarlo un Administrador.</p><label>¿Perteneces también a alguna brigada? (Opcional, puedes marcar una o varias)</label>'+listHtml;
  }else{
   w.innerHTML='';
  }
