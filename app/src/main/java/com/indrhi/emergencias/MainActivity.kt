@@ -2,7 +2,9 @@ package com.indrhi.emergencias
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -77,7 +79,17 @@ class MainActivity : AppCompatActivity() {
                 request: WebResourceRequest?
             ): Boolean {
                 val url = request?.url?.toString() ?: return true
-                return !url.startsWith("file:///android_asset/")
+                if (url.startsWith("file:///android_asset/")) {
+                    return false
+                }
+                if (url.startsWith("https://")) {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "No se pudo abrir enlace externo: $url", t)
+                    }
+                }
+                return true
             }
         }
 
@@ -91,7 +103,17 @@ class MainActivity : AppCompatActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    moveTaskToBack(true)
+                    if (::webView.isInitialized) {
+                        webView.evaluateJavascript(
+                            "window.handleAndroidBack ? window.handleAndroidBack() : false"
+                        ) { result ->
+                            if (result != "true") {
+                                moveTaskToBack(true)
+                            }
+                        }
+                    } else {
+                        moveTaskToBack(true)
+                    }
                 }
             }
         )
