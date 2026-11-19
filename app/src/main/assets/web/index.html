@@ -8,6 +8,7 @@
   :root {
     --rojo: #C62828;
     --rojo-oscuro: #7F0000;
+    --azul: #1565C0;
     --blanco: #FFFFFF;
     --negro: #000000;
     --gris-fondo: #F2F2F2;
@@ -56,6 +57,36 @@
     font-size: 0.9rem;
   }
   .banner.visible { display: block; }
+  .hidden { display: none !important; }
+
+  .session-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin: 10px 0;
+    font-size: 0.85rem;
+  }
+  .session-info { min-width: 0; flex: 1; }
+  .session-email { font-weight: 700; word-break: break-all; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 3px;
+    background: #E3F2FD;
+    color: #0D47A1;
+  }
+  .role-badge.admin { background: #FFEBEE; color: #B71C1C; }
+  .role-badge.brigadista { background: #FFF3E0; color: #E65100; }
+
   .siren-status {
     display: flex;
     align-items: center;
@@ -99,12 +130,32 @@
   .btn-safe { background: var(--verde); }
   .btn-help { background: #B71C1C; }
   .btn-secondary { background: #555555; }
-  .btn-primary-dark { background: #1565C0; }
-  .btn-small { min-height: 44px; font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; }
+  .btn-primary-dark { background: var(--azul); }
+  .btn-small { min-height: 42px; font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; }
+
+  .tab-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .tab-btn {
+    min-height: 40px;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    background: var(--gris-fondo);
+    color: var(--gris-texto);
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+  .tab-btn.active { background: var(--azul); color: #FFFFFF; border-color: var(--azul); }
 
   .card {
     background: var(--tarjeta);
     border: 2px solid var(--rojo);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 12px 0;
+  }
+  .card-auth {
+    background: var(--tarjeta);
+    border: 2px solid var(--azul);
     border-radius: 12px;
     padding: 12px;
     margin: 12px 0;
@@ -116,7 +167,7 @@
     padding: 12px;
     margin: 12px 0;
   }
-  .card h2, .card-neutral h2 { margin-top: 0; }
+  .card h2, .card-auth h2, .card-neutral h2 { margin-top: 0; }
 
   .field-group { margin-bottom: 10px; }
   .field-group label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
@@ -228,16 +279,98 @@
   .badge-sync { color: var(--verde); font-weight: 700; }
   .badge-pending { color: #E65100; font-weight: 700; }
 
+  .user-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    margin: 6px 0;
+    font-size: 0.83rem;
+  }
+
   footer { text-align: center; font-size: 0.8rem; color: var(--detalle); margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--borde); }
 </style>
 </head>
 <body>
   <header>
     <h1>INDRHI Emergencias</h1>
-    <div class="sub">Sirena de evacuación al 100% · Sincronización en nube</div>
+    <div class="sub">Sistema Institucional de Alerta y Evacuación</div>
   </header>
 
   <div class="banner" id="previewBanner">Modo vista previa: sin puente nativo. Los controles de sirena y ajustes no funcionarán aquí.</div>
+
+  <!-- Barra de sesión activa -->
+  <div class="session-bar hidden" id="sessionBar">
+    <div class="session-info">
+      <div class="session-email" id="sessionEmailText">—</div>
+      <div id="sessionNameSub" style="font-size:0.78rem;color:var(--detalle)">—</div>
+      <span class="role-badge" id="sessionRoleBadge">COLABORADOR</span>
+    </div>
+    <button class="btn btn-secondary btn-small" id="btnLogout" type="button">Salir</button>
+  </div>
+
+  <!-- Tarjeta de acceso institucional (@indrhi.gob.do) -->
+  <div class="card-auth" id="authCard">
+    <h2>Acceso Institucional (@indrhi.gob.do)</h2>
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabLogin" type="button">Iniciar sesión</button>
+      <button class="tab-btn" id="tabRegister" type="button">Crear cuenta</button>
+    </div>
+
+    <div class="field-group hidden" id="grpAuthNombre">
+      <label for="authNombre">Nombre completo</label>
+      <input type="text" id="authNombre" placeholder="Ej. Angel Feliz">
+    </div>
+
+    <div class="field-group">
+      <label for="authEmail">Correo electrónico institucional</label>
+      <input type="email" id="authEmail" placeholder="usuario@indrhi.gob.do" autocomplete="email">
+    </div>
+
+    <div class="field-group">
+      <label for="authPassword">Contraseña (mínimo 6 caracteres)</label>
+      <input type="password" id="authPassword" placeholder="••••••" autocomplete="current-password">
+    </div>
+
+    <div class="field-group hidden" id="grpAuthEdificio">
+      <label for="authEdificio">Ubicación habitual</label>
+      <select id="authEdificio">
+        <option value="Edificio ED1">Edificio ED1</option>
+        <option value="Edificio ED2">Edificio ED2</option>
+        <option value="Exterior">Exterior / Regional</option>
+      </select>
+    </div>
+
+    <button class="btn btn-primary-dark btn-block" id="btnAuthSubmit" type="button">Entrar al sistema</button>
+    <div id="authMsg" style="font-size:0.83rem;margin-top:8px;color:var(--rojo);font-weight:700"></div>
+  </div>
+
+  <!-- Panel exclusivo de Administrador (ajfeliz@indrhi.gob.do / rol admin) -->
+  <div class="card-neutral hidden" id="adminPanel">
+    <h2>Administración de Roles (Admin)</h2>
+    <div class="field-group">
+      <label for="adminTargetEmail">Correo del colaborador (@indrhi.gob.do)</label>
+      <input type="email" id="adminTargetEmail" placeholder="colaborador@indrhi.gob.do">
+    </div>
+    <div class="field-group">
+      <label for="adminTargetRole">Rol asignado</label>
+      <select id="adminTargetRole">
+        <option value="colaborador">Colaborador (Reporta estado y recibe alertas)</option>
+        <option value="brigadista">Brigadista (Puede activar sirena roja)</option>
+        <option value="admin">Administrador (Control total y gestión de roles)</option>
+      </select>
+    </div>
+    <button class="btn btn-primary-dark btn-small btn-block" id="btnAssignRole" type="button">Guardar rol del usuario</button>
+    <div id="adminMsg" style="font-size:0.82rem;margin-top:6px;color:var(--detalle)"></div>
+
+    <div style="margin-top:12px">
+      <button class="btn btn-secondary btn-small btn-block" id="btnLoadUsers" type="button">Ver usuarios registrados</button>
+      <div id="adminUsersList" style="margin-top:8px"></div>
+    </div>
+  </div>
 
   <div class="siren-status" id="sirenStatus">
     <span class="dot"></span>
@@ -245,10 +378,13 @@
   </div>
 
   <div class="grid-buttons">
-    <button class="btn btn-danger" id="btnActivate" type="button">Activar Sirena Roja</button>
+    <button class="btn btn-danger hidden" id="btnActivate" type="button">Activar Sirena Roja</button>
     <button class="btn btn-stop" id="btnStop" type="button">Detener Sirena</button>
     <button class="btn btn-safe" id="btnSafe" type="button">Estoy a salvo</button>
     <button class="btn btn-help" id="btnHelp" type="button">Necesito ayuda</button>
+  </div>
+  <div id="roleSirenNote" style="font-size:0.8rem;color:var(--detalle);margin:-8px 0 12px;text-align:center">
+    Inicia sesión con tu correo @indrhi.gob.do para sincronizar tus reportes y permisos.
   </div>
 
   <div class="card">
@@ -275,31 +411,24 @@
       <button class="btn" type="button" data-estado="Hay heridos">Hay heridos</button>
     </div>
 
-    <div class="notice-ok" id="cloudSyncStatus">
-      Conectado a Firestore (indrhi-emergencias). Los reportes se guardan localmente y se envían automáticamente.
+    <div class="notice" id="cloudSyncStatus">
+      Inicia sesión con tu correo @indrhi.gob.do para enviar reportes a Cloud Firestore.
     </div>
     <button class="btn btn-secondary btn-small btn-block" id="btnResetReport" type="button" style="margin-top:8px">Reiniciar selección</button>
   </div>
 
-  <div class="card-neutral">
-    <h2>Identificación del colaborador</h2>
+  <!-- Ubicación actual del colaborador autenticado -->
+  <div class="card-neutral hidden" id="locationCard">
+    <h2>Ubicación habitual</h2>
     <div class="field-group">
-      <label for="inpNombre">Nombre completo</label>
-      <input type="text" id="inpNombre" placeholder="Ej. Angel Feliz">
-    </div>
-    <div class="field-group">
-      <label for="inpCorreo">Correo institucional (@indrhi.gob.do)</label>
-      <input type="email" id="inpCorreo" placeholder="Ej. ajfeliz@indrhi.gob.do">
-    </div>
-    <div class="field-group">
-      <label for="selEdificioPerfil">Ubicación habitual</label>
+      <label for="selEdificioPerfil">Edificio asignado para alertas</label>
       <select id="selEdificioPerfil">
         <option value="Edificio ED1">Edificio ED1</option>
         <option value="Edificio ED2">Edificio ED2</option>
         <option value="Exterior">Exterior / Regional</option>
       </select>
     </div>
-    <button class="btn btn-primary-dark btn-small btn-block" id="btnSaveProfile" type="button">Guardar datos y vincular dispositivo</button>
+    <button class="btn btn-primary-dark btn-small btn-block" id="btnUpdateLocation" type="button">Actualizar ubicación y canal</button>
     <div class="detail" id="profileSyncMsg" style="font-size:0.8rem;margin-top:6px;color:var(--detalle)"></div>
   </div>
 
@@ -333,21 +462,22 @@
     <button class="btn btn-secondary btn-small" id="btnCopyFcm" type="button">Copiar token</button>
   </div>
 
-  <footer>INDRHI Emergencias · v1.0.0 · Fase 3 (Cloud Firestore)</footer>
+  <footer>INDRHI Emergencias · v1.0.0 · Fase 4 (Auth @indrhi.gob.do & Roles)</footer>
 
 <script>
 (function () {
   'use strict';
 
-  var FIREBASE_PROJECT_ID = 'indrhi-emergencias';
-  var FIRESTORE_BASE_URL = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT_ID + '/databases/(default)/documents';
+  var DEFAULT_ADMIN_EMAIL = 'ajfeliz@indrhi.gob.do';
+  var ALLOWED_DOMAIN = '@indrhi.gob.do';
 
   var STORAGE_KEY = 'indrhi.reportes';
   var FCM_STORAGE_KEY = 'indrhi.fcmToken';
-  var PROFILE_STORAGE_KEY = 'indrhi.perfil';
+  var AUTH_STORAGE_KEY = 'indrhi.authSession';
   var DEVICE_ID_KEY = 'indrhi.deviceId';
   var MAX_REPORTS = 50;
 
+  var authMode = 'login'; // 'login' | 'register'
   var sirenPollTimer = null;
   var tripleSelection = { tipo: null, lugar: null, estado: null };
   var isSyncing = false;
@@ -359,21 +489,13 @@
   function safeCall(methodName, fallback) {
     var bridge = getBridge();
     if (!bridge || typeof bridge[methodName] !== 'function') return fallback;
-    try {
-      return bridge[methodName]();
-    } catch (e) {
-      return fallback;
-    }
+    try { return bridge[methodName](); } catch (e) { return fallback; }
   }
 
   function safeCallArg(methodName, arg, fallback) {
     var bridge = getBridge();
     if (!bridge || typeof bridge[methodName] !== 'function') return fallback;
-    try {
-      return bridge[methodName](arg);
-    } catch (e) {
-      return fallback;
-    }
+    try { return bridge[methodName](arg); } catch (e) { return fallback; }
   }
 
   function parseJson(raw) {
@@ -387,6 +509,19 @@
     return String(s).replace(/[&<>"']/g, function (c) {
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
     });
+  }
+
+  function getFirebaseCfg() {
+    var cfg = parseJson(safeCall('getFirebaseConfig', null));
+    if (cfg && cfg.ok && cfg.apiKey) {
+      return { apiKey: cfg.apiKey, projectId: cfg.projectId || 'indrhi-emergencias' };
+    }
+    return { apiKey: '', projectId: 'indrhi-emergencias' };
+  }
+
+  function firestoreBaseUrl() {
+    var cfg = getFirebaseCfg();
+    return 'https://firestore.googleapis.com/v1/projects/' + cfg.projectId + '/databases/(default)/documents';
   }
 
   function setPreviewBanner() {
@@ -405,22 +540,355 @@
     return id;
   }
 
-  // ---------- Perfil y Topics ----------
-  function loadProfile() {
+  // ---------- Sesión y Firebase Authentication ----------
+  function loadSession() {
     try {
-      var raw = localStorage.getItem(PROFILE_STORAGE_KEY);
-      if (!raw) return { nombre: '', correo: '', edificio: 'Edificio ED1' };
-      var obj = JSON.parse(raw);
-      return {
-        nombre: obj.nombre || '',
-        correo: obj.correo || '',
-        edificio: obj.edificio || 'Edificio ED1'
-      };
-    } catch (e) {
-      return { nombre: '', correo: '', edificio: 'Edificio ED1' };
+      var raw = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+
+  function saveSession(session) {
+    try {
+      if (!session) localStorage.removeItem(AUTH_STORAGE_KEY);
+      else localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+    } catch (e) {}
+  }
+
+  function getValidIdToken() {
+    var s = loadSession();
+    if (!s || !s.idToken) return Promise.resolve(null);
+    if (s.expiresAt && Date.now() < s.expiresAt) {
+      return Promise.resolve(s.idToken);
+    }
+    var cfg = getFirebaseCfg();
+    if (!cfg.apiKey || !s.refreshToken) return Promise.resolve(s.idToken);
+
+    return fetch('https://securetoken.googleapis.com/v1/token?key=' + encodeURIComponent(cfg.apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(s.refreshToken)
+    }).then(function (res) {
+      return res.json();
+    }).then(function (data) {
+      if (data && data.id_token) {
+        s.idToken = data.id_token;
+        s.refreshToken = data.refresh_token || s.refreshToken;
+        s.expiresAt = Date.now() + (Number(data.expires_in || 3600) - 60) * 1000;
+        saveSession(s);
+        return s.idToken;
+      }
+      return null;
+    }).catch(function () {
+      return s.idToken;
+    });
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    var tabL = document.getElementById('tabLogin');
+    var tabR = document.getElementById('tabRegister');
+    var grpNom = document.getElementById('grpAuthNombre');
+    var grpEd = document.getElementById('grpAuthEdificio');
+    var btnSub = document.getElementById('btnAuthSubmit');
+    document.getElementById('authMsg').textContent = '';
+
+    if (mode === 'register') {
+      tabL.classList.remove('active');
+      tabR.classList.add('active');
+      grpNom.classList.remove('hidden');
+      grpEd.classList.remove('hidden');
+      btnSub.textContent = 'Registrar cuenta @indrhi.gob.do';
+    } else {
+      tabR.classList.remove('active');
+      tabL.classList.add('active');
+      grpNom.classList.add('hidden');
+      grpEd.classList.add('hidden');
+      btnSub.textContent = 'Entrar al sistema';
     }
   }
 
+  function mapAuthError(code) {
+    if (!code) return 'Error de autenticación.';
+    if (code.indexOf('EMAIL_EXISTS') !== -1) return 'Este correo ya está registrado. Cambia a "Iniciar sesión".';
+    if (code.indexOf('INVALID_LOGIN_CREDENTIALS') !== -1 || code.indexOf('INVALID_PASSWORD') !== -1 || code.indexOf('EMAIL_NOT_FOUND') !== -1) {
+      return 'Correo o contraseña incorrectos.';
+    }
+    if (code.indexOf('WEAK_PASSWORD') !== -1) return 'La contraseña debe tener al menos 6 caracteres.';
+    if (code.indexOf('TOO_MANY_ATTEMPTS') !== -1) return 'Demasiados intentos. Espera unos minutos.';
+    return 'Error: ' + code;
+  }
+
+  function handleAuthSubmit() {
+    var email = document.getElementById('authEmail').value.trim().toLowerCase();
+    var password = document.getElementById('authPassword').value;
+    var nombre = document.getElementById('authNombre').value.trim();
+    var edificio = document.getElementById('authEdificio').value;
+    var msgEl = document.getElementById('authMsg');
+
+    msgEl.style.color = '#C62828';
+    msgEl.textContent = '';
+
+    if (!email || email.slice(-ALLOWED_DOMAIN.length) !== ALLOWED_DOMAIN) {
+      msgEl.textContent = 'Solo se permiten correos institucionales (@indrhi.gob.do).';
+      return;
+    }
+    if (!password || password.length < 6) {
+      msgEl.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+      return;
+    }
+    if (authMode === 'register' && !nombre) {
+      msgEl.textContent = 'Escribe tu nombre completo para registrarte.';
+      return;
+    }
+
+    var cfg = getFirebaseCfg();
+    if (!cfg.apiKey) {
+      msgEl.textContent = 'API Key de Firebase no disponible en este entorno.';
+      return;
+    }
+
+    var endpoint = authMode === 'register' ? 'accounts:signUp' : 'accounts:signInWithPassword';
+    msgEl.style.color = '#1565C0';
+    msgEl.textContent = 'Verificando credenciales institucionales...';
+
+    fetch('https://identitytoolkit.googleapis.com/v1/' + endpoint + '?key=' + encodeURIComponent(cfg.apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
+    }).then(function (res) {
+      return res.json();
+    }).then(function (data) {
+      if (data.error) {
+        msgEl.style.color = '#C62828';
+        msgEl.textContent = mapAuthError(data.error.message);
+        return;
+      }
+
+      var session = {
+        email: email,
+        uid: data.localId,
+        idToken: data.idToken,
+        refreshToken: data.refreshToken,
+        expiresAt: Date.now() + (Number(data.expiresIn || 3600) - 60) * 1000,
+        nombre: nombre || email.split('@')[0],
+        edificio: edificio || 'Edificio ED1',
+        rol: (email === DEFAULT_ADMIN_EMAIL) ? 'admin' : 'colaborador'
+      };
+      saveSession(session);
+      document.getElementById('authPassword').value = '';
+      msgEl.textContent = '';
+
+      return syncUserRoleFromFirestore(session).then(function (updatedSession) {
+        renderAuthState();
+        applyTopicSubscriptions(updatedSession.edificio);
+        registerDeviceInFirestore(updatedSession, loadStoredFcmToken());
+        syncPendingReports();
+      });
+    }).catch(function () {
+      msgEl.style.color = '#C62828';
+      msgEl.textContent = 'Sin conexión a Internet para verificar la cuenta.';
+    });
+  }
+
+  function syncUserRoleFromFirestore(session) {
+    if (!session || !session.email) return Promise.resolve(session);
+    return getValidIdToken().then(function (idToken) {
+      if (!idToken) return session;
+      var url = firestoreBaseUrl() + '/usuarios/' + encodeURIComponent(session.email);
+      return fetch(url, {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + idToken }
+      }).then(function (res) {
+        if (res.ok) {
+          return res.json().then(function (doc) {
+            var f = doc.fields || {};
+            var dbRol = (f.rol && f.rol.stringValue) ? f.rol.stringValue : 'colaborador';
+            if (session.email === DEFAULT_ADMIN_EMAIL) dbRol = 'admin';
+            session.rol = dbRol;
+            if (f.nombre && f.nombre.stringValue) session.nombre = f.nombre.stringValue;
+            if (f.edificio && f.edificio.stringValue) session.edificio = f.edificio.stringValue;
+            saveSession(session);
+            if (session.email === DEFAULT_ADMIN_EMAIL && (!f.rol || f.rol.stringValue !== 'admin')) {
+              return upsertUserDoc(session, idToken).then(function () { return session; });
+            }
+            return session;
+          });
+        } else {
+          // Crear documento de usuario por primera vez
+          session.rol = (session.email === DEFAULT_ADMIN_EMAIL) ? 'admin' : 'colaborador';
+          saveSession(session);
+          return upsertUserDoc(session, idToken).then(function () { return session; });
+        }
+      }).catch(function () {
+        return session;
+      });
+    });
+  }
+
+  function upsertUserDoc(session, idToken) {
+    var url = firestoreBaseUrl() + '/usuarios/' + encodeURIComponent(session.email);
+    var body = {
+      fields: {
+        email: { stringValue: session.email },
+        nombre: { stringValue: session.nombre || session.email.split('@')[0] },
+        edificio: { stringValue: session.edificio || 'Edificio ED1' },
+        rol: { stringValue: session.rol || 'colaborador' },
+        uid: { stringValue: session.uid || '' },
+        actualizadoIso: { stringValue: new Date().toISOString() }
+      }
+    };
+    return fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': 'Bearer ' + idToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+  }
+
+  function handleLogout() {
+    saveSession(null);
+    renderAuthState();
+  }
+
+  function renderAuthState() {
+    var s = loadSession();
+    var authCard = document.getElementById('authCard');
+    var sessionBar = document.getElementById('sessionBar');
+    var adminPanel = document.getElementById('adminPanel');
+    var locationCard = document.getElementById('locationCard');
+    var btnActivate = document.getElementById('btnActivate');
+    var roleNote = document.getElementById('roleSirenNote');
+
+    if (!s || !s.email) {
+      authCard.classList.remove('hidden');
+      sessionBar.classList.add('hidden');
+      adminPanel.classList.add('hidden');
+      locationCard.classList.add('hidden');
+      btnActivate.classList.add('hidden');
+      roleNote.textContent = 'Inicia sesión con tu correo @indrhi.gob.do para sincronizar tus reportes y permisos.';
+      return;
+    }
+
+    authCard.classList.add('hidden');
+    sessionBar.classList.remove('hidden');
+    locationCard.classList.remove('hidden');
+
+    document.getElementById('sessionEmailText').textContent = s.email;
+    document.getElementById('sessionNameSub').textContent = (s.nombre || '') + ' · ' + (s.edificio || 'Edificio ED1');
+    document.getElementById('selEdificioPerfil').value = s.edificio || 'Edificio ED1';
+
+    var badge = document.getElementById('sessionRoleBadge');
+    var rol = s.rol || 'colaborador';
+    badge.textContent = rol.toUpperCase();
+    badge.className = 'role-badge ' + rol;
+
+    if (rol === 'admin') {
+      adminPanel.classList.remove('hidden');
+    } else {
+      adminPanel.classList.add('hidden');
+    }
+
+    if (rol === 'admin' || rol === 'brigadista') {
+      btnActivate.classList.remove('hidden');
+      roleNote.textContent = 'Permiso activo para disparar alerta de sirena institucional.';
+    } else {
+      btnActivate.classList.add('hidden');
+      roleNote.textContent = 'Rol Colaborador: activación de sirena reservada a Brigadistas y Administradores.';
+    }
+  }
+
+  // ---------- Administración de Roles ----------
+  function assignUserRole() {
+    var s = loadSession();
+    if (!s || s.rol !== 'admin') {
+      window.alert('Solo un administrador puede asignar roles.');
+      return;
+    }
+    var targetEmail = document.getElementById('adminTargetEmail').value.trim().toLowerCase();
+    var targetRole = document.getElementById('adminTargetRole').value;
+    var msgEl = document.getElementById('adminMsg');
+
+    if (!targetEmail || targetEmail.slice(-ALLOWED_DOMAIN.length) !== ALLOWED_DOMAIN) {
+      msgEl.style.color = '#C62828';
+      msgEl.textContent = 'El correo debe terminar en @indrhi.gob.do';
+      return;
+    }
+
+    msgEl.style.color = '#1565C0';
+    msgEl.textContent = 'Actualizando rol en Firestore...';
+
+    getValidIdToken().then(function (idToken) {
+      var url = firestoreBaseUrl() + '/usuarios/' + encodeURIComponent(targetEmail) + '?updateMask.fieldPaths=email&updateMask.fieldPaths=rol&updateMask.fieldPaths=actualizadoIso';
+      var body = {
+        fields: {
+          email: { stringValue: targetEmail },
+          rol: { stringValue: targetRole },
+          actualizadoIso: { stringValue: new Date().toISOString() }
+        }
+      };
+      return fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + idToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+    }).then(function (res) {
+      if (res.ok) {
+        msgEl.style.color = '#2E7D32';
+        msgEl.textContent = '✔ Rol "' + targetRole + '" asignado a ' + targetEmail;
+        loadRegisteredUsers();
+      } else {
+        msgEl.style.color = '#C62828';
+        msgEl.textContent = 'Error HTTP ' + res.status + ' al asignar rol.';
+      }
+    }).catch(function () {
+      msgEl.style.color = '#C62828';
+      msgEl.textContent = 'Sin conexión para actualizar el rol.';
+    });
+  }
+
+  function loadRegisteredUsers() {
+    var listEl = document.getElementById('adminUsersList');
+    listEl.innerHTML = '<div style="font-size:0.8rem;color:var(--detalle)">Cargando usuarios...</div>';
+
+    getValidIdToken().then(function (idToken) {
+      if (!idToken) return;
+      return fetch(firestoreBaseUrl() + '/usuarios?pageSize=100', {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + idToken }
+      }).then(function (res) {
+        return res.json();
+      }).then(function (data) {
+        var docs = (data && data.documents) ? data.documents : [];
+        if (!docs.length) {
+          listEl.innerHTML = '<div style="font-size:0.8rem;color:var(--detalle)">No hay usuarios registrados aún.</div>';
+          return;
+        }
+        var html = '';
+        for (var i = 0; i < docs.length; i++) {
+          var f = docs[i].fields || {};
+          var em = (f.email && f.email.stringValue) ? f.email.stringValue : '';
+          var nom = (f.nombre && f.nombre.stringValue) ? f.nombre.stringValue : '';
+          var r = (f.rol && f.rol.stringValue) ? f.rol.stringValue : 'colaborador';
+          html += '<div class="user-row">';
+          html += '<div style="min-width:0;flex:1"><strong>' + escapeHtml(em) + '</strong><br><span style="color:var(--detalle)">' + escapeHtml(nom) + '</span></div>';
+          html += '<button class="btn btn-secondary btn-small" type="button" data-pick-email="' + escapeHtml(em) + '" data-pick-role="' + escapeHtml(r) + '">' + escapeHtml(r.toUpperCase()) + '</button>';
+          html += '</div>';
+        }
+        listEl.innerHTML = html;
+      });
+    }).catch(function () {
+      listEl.innerHTML = '<div style="font-size:0.8rem;color:#C62828">Error cargando lista de usuarios.</div>';
+    });
+  }
+
+  // ---------- Topics y Dispositivo ----------
   function topicForEdificio(edificio) {
     if (edificio === 'Edificio ED1') return 'indrhi_ed1';
     if (edificio === 'Edificio ED2') return 'indrhi_ed2';
@@ -440,68 +908,64 @@
     }
   }
 
-  function registerDeviceInFirestore(profile, token) {
+  function registerDeviceInFirestore(session, token) {
     var msgEl = document.getElementById('profileSyncMsg');
-    if (!token) {
-      if (msgEl) msgEl.textContent = 'Perfil guardado localmente. Esperando token FCM para vincular en la nube...';
-      return;
-    }
+    if (!session || !session.email || !token) return;
+
     var devId = getDeviceId();
     var ctx = parseJson(safeCall('getContext', null)) || {};
     var deviceModel = ((ctx.manufacturer || '') + ' ' + (ctx.model || '')).trim() || 'Android';
 
-    var payload = {
-      fields: {
-        deviceId: { stringValue: devId },
-        nombre: { stringValue: profile.nombre || 'Sin nombre' },
-        correo: { stringValue: profile.correo || '' },
-        edificio: { stringValue: profile.edificio || 'Edificio ED1' },
-        topicEdificio: { stringValue: topicForEdificio(profile.edificio) },
-        fcmToken: { stringValue: token },
-        modelo: { stringValue: deviceModel },
-        versionApp: { stringValue: String(ctx.versionName || '1.0.0') },
-        actualizadoIso: { stringValue: new Date().toISOString() }
-      }
-    };
+    getValidIdToken().then(function (idToken) {
+      if (!idToken) return;
+      var payload = {
+        fields: {
+          deviceId: { stringValue: devId },
+          nombre: { stringValue: session.nombre || 'Sin nombre' },
+          correo: { stringValue: session.email },
+          rol: { stringValue: session.rol || 'colaborador' },
+          edificio: { stringValue: session.edificio || 'Edificio ED1' },
+          topicEdificio: { stringValue: topicForEdificio(session.edificio) },
+          fcmToken: { stringValue: token },
+          modelo: { stringValue: deviceModel },
+          versionApp: { stringValue: String(ctx.versionName || '1.0.0') },
+          actualizadoIso: { stringValue: new Date().toISOString() }
+        }
+      };
 
-    fetch(FIRESTORE_BASE_URL + '/dispositivos/' + encodeURIComponent(devId), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(function (res) {
-      if (res.ok) {
-        if (msgEl) msgEl.textContent = '✔ Vinculado en la nube (canales: indrhi_todos + ' + topicForEdificio(profile.edificio) + ').';
-      } else {
-        if (msgEl) msgEl.textContent = 'Guardado localmente (HTTP ' + res.status + ' al vincular con Firestore).';
-      }
-    }).catch(function () {
-      if (msgEl) msgEl.textContent = 'Guardado localmente (sin conexión a Internet para vincular ahora).';
+      return fetch(firestoreBaseUrl() + '/dispositivos/' + encodeURIComponent(devId), {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + idToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }).then(function (res) {
+        if (res.ok && msgEl) {
+          msgEl.textContent = '✔ Dispositivo vinculado (' + topicForEdificio(session.edificio) + ').';
+        }
+      });
+    }).catch(function () {});
+  }
+
+  function updateLocation() {
+    var s = loadSession();
+    if (!s || !s.email) return;
+    var nuevoEdificio = document.getElementById('selEdificioPerfil').value;
+    s.edificio = nuevoEdificio;
+    saveSession(s);
+
+    applyTopicSubscriptions(nuevoEdificio);
+    renderAuthState();
+    renderFcmPanel(loadStoredFcmToken());
+
+    getValidIdToken().then(function (idToken) {
+      if (!idToken) return;
+      return upsertUserDoc(s, idToken).then(function () {
+        registerDeviceInFirestore(s, loadStoredFcmToken());
+        window.alert('Ubicación y canal de alerta actualizados.');
+      });
     });
-  }
-
-  function saveProfile() {
-    var nombre = document.getElementById('inpNombre').value.trim();
-    var correo = document.getElementById('inpCorreo').value.trim().toLowerCase();
-    var edificio = document.getElementById('selEdificioPerfil').value;
-
-    if (correo && correo.indexOf('@') === -1) {
-      window.alert('Por favor escribe un correo electrónico válido.');
-      return;
-    }
-
-    var profile = { nombre: nombre, correo: correo, edificio: edificio };
-    try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile)); } catch (e) {}
-
-    applyTopicSubscriptions(edificio);
-    registerDeviceInFirestore(profile, loadStoredFcmToken());
-    window.alert('Datos guardados y canales de alerta actualizados.');
-  }
-
-  function renderProfileForm() {
-    var p = loadProfile();
-    document.getElementById('inpNombre').value = p.nombre;
-    document.getElementById('inpCorreo').value = p.correo;
-    document.getElementById('selEdificioPerfil').value = p.edificio;
   }
 
   // ---------- Sirena ----------
@@ -530,6 +994,11 @@
   }
 
   function onActivate() {
+    var s = loadSession();
+    if (!s || (s.rol !== 'admin' && s.rol !== 'brigadista')) {
+      window.alert('Solo usuarios con rol Brigadista o Administrador pueden activar la sirena.');
+      return;
+    }
     var ok = window.confirm('Se activará la sirena al 100% de volumen. Si usa audífonos, retírelos.');
     if (!ok) return;
     var res = parseJson(safeCall('testAlarm', null));
@@ -563,8 +1032,8 @@
     } catch (e) { return list; }
   }
 
-  function sendSingleReportToFirestore(report) {
-    var p = loadProfile();
+  function sendSingleReportToFirestore(report, idToken) {
+    var s = loadSession() || {};
     var ctx = report.contexto || {};
     var deviceModel = ((ctx.manufacturer || '') + ' ' + (ctx.model || '')).trim() || 'Android';
 
@@ -574,9 +1043,10 @@
         tipo: { stringValue: String(report.tipo || 'No especificado') },
         lugar: { stringValue: String(report.lugar || 'No especificado') },
         estado: { stringValue: String(report.estado || '') },
-        nombre: { stringValue: String(p.nombre || 'Anónimo') },
-        correo: { stringValue: String(p.correo || '') },
-        edificioAsignado: { stringValue: String(p.edificio || '') },
+        nombre: { stringValue: String(s.nombre || 'Anónimo') },
+        correo: { stringValue: String(s.email || '') },
+        rol: { stringValue: String(s.rol || 'colaborador') },
+        edificioAsignado: { stringValue: String(s.edificio || '') },
         fcmToken: { stringValue: String(loadStoredFcmToken() || '') },
         deviceId: { stringValue: getDeviceId() },
         dispositivo: { stringValue: deviceModel },
@@ -584,9 +1054,12 @@
       }
     };
 
-    return fetch(FIRESTORE_BASE_URL + '/reportes/' + encodeURIComponent(report.id), {
+    return fetch(firestoreBaseUrl() + '/reportes/' + encodeURIComponent(report.id), {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': 'Bearer ' + idToken,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(payload)
     }).then(function (res) {
       return res.ok;
@@ -597,59 +1070,74 @@
 
   function syncPendingReports() {
     if (isSyncing) return;
+    var s = loadSession();
+    if (!s || !s.email) {
+      updateCloudStatusBanner(false, 0, true);
+      return;
+    }
+
     var list = readReports();
     var pendingIndexes = [];
     for (var i = 0; i < list.length; i++) {
       if (!list[i].enviado) pendingIndexes.push(i);
     }
     if (!pendingIndexes.length) {
-      updateCloudStatusBanner(true, 0);
+      updateCloudStatusBanner(true, 0, false);
       return;
     }
 
     isSyncing = true;
-    var chain = Promise.resolve();
-    pendingIndexes.forEach(function (idx) {
-      chain = chain.then(function () {
-        var currentList = readReports();
-        var item = currentList[idx];
-        if (!item || item.enviado) return;
-        return sendSingleReportToFirestore(item).then(function (ok) {
-          if (ok) {
-            var updated = readReports();
-            if (updated[idx] && updated[idx].id === item.id) {
-              updated[idx].enviado = true;
-              writeReports(updated);
+    getValidIdToken().then(function (idToken) {
+      if (!idToken) {
+        isSyncing = false;
+        return;
+      }
+      var chain = Promise.resolve();
+      pendingIndexes.forEach(function (idx) {
+        chain = chain.then(function () {
+          var currentList = readReports();
+          var item = currentList[idx];
+          if (!item || item.enviado) return;
+          return sendSingleReportToFirestore(item, idToken).then(function (ok) {
+            if (ok) {
+              var updated = readReports();
+              if (updated[idx] && updated[idx].id === item.id) {
+                updated[idx].enviado = true;
+                writeReports(updated);
+              }
             }
-          }
+          });
         });
       });
-    });
 
-    chain.then(function () {
-      isSyncing = false;
-      var finalList = readReports();
-      var remaining = 0;
-      for (var j = 0; j < finalList.length; j++) {
-        if (!finalList[j].enviado) remaining++;
-      }
-      updateCloudStatusBanner(remaining === 0, remaining);
-      renderReports();
+      return chain.then(function () {
+        isSyncing = false;
+        var finalList = readReports();
+        var remaining = 0;
+        for (var j = 0; j < finalList.length; j++) {
+          if (!finalList[j].enviado) remaining++;
+        }
+        updateCloudStatusBanner(remaining === 0, remaining, false);
+        renderReports();
+      });
     }).catch(function () {
       isSyncing = false;
       renderReports();
     });
   }
 
-  function updateCloudStatusBanner(allSynced, pendingCount) {
+  function updateCloudStatusBanner(allSynced, pendingCount, noAuth) {
     var el = document.getElementById('cloudSyncStatus');
     if (!el) return;
-    if (allSynced) {
+    if (noAuth) {
+      el.className = 'notice';
+      el.textContent = 'Inicia sesión con tu correo @indrhi.gob.do para sincronizar los reportes con la central.';
+    } else if (allSynced) {
       el.className = 'notice-ok';
-      el.textContent = '✔ Todos los reportes están sincronizados con Cloud Firestore.';
+      el.textContent = '✔ Sesión verificada (@indrhi.gob.do). Reportes sincronizados con Cloud Firestore.';
     } else {
       el.className = 'notice';
-      el.textContent = '⏳ ' + pendingCount + ' reporte(s) guardados en el teléfono pendientes por conexión a Internet.';
+      el.textContent = '⏳ ' + pendingCount + ' reporte(s) pendientes por enviar a Firestore.';
     }
   }
 
@@ -686,7 +1174,7 @@
       try { fecha = new Date(r.fechaIso).toLocaleString('es-DO'); } catch (e) { fecha = r.fechaIso || ''; }
       var syncBadge = r.enviado
         ? '<span class="badge-sync">✔ Enviado a nube</span>'
-        : '<span class="badge-pending">⏳ Pendiente de red</span>';
+        : '<span class="badge-pending">⏳ Pendiente</span>';
       html += '<div class="report-item">';
       html += '<div><strong>' + escapeHtml(r.tipo) + '</strong> · ' + escapeHtml(r.lugar) + ' · ' + escapeHtml(r.estado) + '</div>';
       html += '<div class="meta">' + escapeHtml(fecha) + ' · ' + syncBadge + '</div>';
@@ -730,21 +1218,21 @@
     document.getElementById('stepEstado').classList.add('step-hidden');
     if (tripleSelection.tipo && tripleSelection.lugar) {
       addReport(tripleSelection.tipo, tripleSelection.lugar, estado);
-      window.alert('Reporte registrado y enviándose a la central del INDRHI.');
+      window.alert('Reporte registrado.');
       resetTriple();
     }
   }
 
   function onSafe() {
-    var p = loadProfile();
-    addReport('Reporte directo', p.edificio || 'No especificado', 'A salvo');
-    window.alert('Estado "A salvo" registrado y enviándose a la central.');
+    var s = loadSession() || {};
+    addReport('Reporte directo', s.edificio || 'No especificado', 'A salvo');
+    window.alert('Estado "A salvo" registrado.');
   }
 
   function onHelp() {
-    var p = loadProfile();
-    addReport('Solicitud de auxilio', p.edificio || 'No especificado', 'Necesito ayuda');
-    window.alert('Solicitud "Necesito ayuda" registrada y enviándose a la central.');
+    var s = loadSession() || {};
+    addReport('Solicitud de auxilio', s.edificio || 'No especificado', 'Necesito ayuda');
+    window.alert('Solicitud "Necesito ayuda" registrada.');
   }
 
   // ---------- Panel de salud ----------
@@ -804,34 +1292,12 @@
     document.getElementById('healthSummaryText').textContent = summaryText;
 
     var rows = '';
-    rows += healthRow(
-      notifOk,
-      'Notificaciones',
-      notifOk ? 'Notificaciones activas' : 'Notificaciones desactivadas o falta POST_NOTIFICATIONS',
-      'openNotificationSettings'
-    );
-
-    var dndDetail = 'Acceso a No Molestar: ' + (dndOk ? 'concedido' : 'no concedido') +
-      ' · Filtro actual: ' + (h.interruptionFilter || 'UNKNOWN');
-    if (h.interruptionFilter === 'NONE') {
-      dndDetail += ' (¡silencio total! puede bloquear alarmas)';
-    }
+    rows += healthRow(notifOk, 'Notificaciones', notifOk ? 'Notificaciones activas' : 'Notificaciones desactivadas o falta POST_NOTIFICATIONS', 'openNotificationSettings');
+    var dndDetail = 'Acceso a No Molestar: ' + (dndOk ? 'concedido' : 'no concedido') + ' · Filtro actual: ' + (h.interruptionFilter || 'UNKNOWN');
+    if (h.interruptionFilter === 'NONE') dndDetail += ' (¡silencio total! puede bloquear alarmas)';
     rows += healthRow(dndOk, 'Acceso a No Molestar', dndDetail, 'openDndSettings');
-
-    rows += healthRow(
-      fsOk,
-      'Pantalla completa sobre bloqueo',
-      fsOk ? 'Permitido' : 'No permitido (Android 14+)',
-      'openFullScreenSettings'
-    );
-
-    rows += healthRow(
-      batOk,
-      'Batería sin restricciones',
-      batOk ? 'Exento de optimización' : 'Optimización de batería activa',
-      'openBatterySettings'
-    );
-
+    rows += healthRow(fsOk, 'Pantalla completa sobre bloqueo', fsOk ? 'Permitido' : 'No permitido (Android 14+)', 'openFullScreenSettings');
+    rows += healthRow(batOk, 'Batería sin restricciones', batOk ? 'Exento de optimización' : 'Optimización de batería activa', 'openBatterySettings');
     rows += infoRow('Volumen de alarma', (h.alarmVolume != null ? h.alarmVolume : '?') + ' / ' + (h.alarmVolumeMax != null ? h.alarmVolumeMax : '?'));
     rows += infoRow('Modo de timbre', h.ringerMode || 'UNKNOWN');
     rows += infoRow('Audífonos conectados', h.headphonesConnected ? 'Sí' : 'No');
@@ -864,9 +1330,10 @@
     var detail = document.getElementById('fcmStatusDetail');
     var code = document.getElementById('fcmTokenValue');
     var icon = document.getElementById('fcmStatusIcon');
-    var p = loadProfile();
+    var s = loadSession();
+    var ed = (s && s.edificio) ? s.edificio : 'Edificio ED1';
     if (token) {
-      detail.textContent = 'Activo · Suscrito a: indrhi_todos, ' + topicForEdificio(p.edificio);
+      detail.textContent = 'Activo · Suscrito a: indrhi_todos, ' + topicForEdificio(ed);
       icon.textContent = '✔';
       icon.style.color = '#2E7D32';
       code.textContent = token;
@@ -883,9 +1350,10 @@
     var token = (res && res.ok && res.token) ? res.token : loadStoredFcmToken();
     if (token) {
       saveFcmToken(token);
-      var p = loadProfile();
-      applyTopicSubscriptions(p.edificio);
-      registerDeviceInFirestore(p, token);
+      var s = loadSession();
+      var ed = (s && s.edificio) ? s.edificio : 'Edificio ED1';
+      applyTopicSubscriptions(ed);
+      if (s && s.email) registerDeviceInFirestore(s, token);
     }
     renderFcmPanel(token || '');
   }
@@ -919,9 +1387,10 @@
   window.onFcmToken = function (token) {
     if (!token) return;
     saveFcmToken(token);
-    var p = loadProfile();
-    applyTopicSubscriptions(p.edificio);
-    registerDeviceInFirestore(p, token);
+    var s = loadSession();
+    var ed = (s && s.edificio) ? s.edificio : 'Edificio ED1';
+    applyTopicSubscriptions(ed);
+    if (s && s.email) registerDeviceInFirestore(s, token);
     renderFcmPanel(token);
   };
 
@@ -931,12 +1400,27 @@
   function bind() {
     setPreviewBanner();
 
+    document.getElementById('tabLogin').addEventListener('click', function () { setAuthMode('login'); });
+    document.getElementById('tabRegister').addEventListener('click', function () { setAuthMode('register'); });
+    document.getElementById('btnAuthSubmit').addEventListener('click', handleAuthSubmit);
+    document.getElementById('btnLogout').addEventListener('click', handleLogout);
+
+    document.getElementById('btnAssignRole').addEventListener('click', assignUserRole);
+    document.getElementById('btnLoadUsers').addEventListener('click', loadRegisteredUsers);
+    document.getElementById('adminUsersList').addEventListener('click', function (ev) {
+      var t = ev.target;
+      if (t && t.tagName === 'BUTTON' && t.getAttribute('data-pick-email')) {
+        document.getElementById('adminTargetEmail').value = t.getAttribute('data-pick-email');
+        document.getElementById('adminTargetRole').value = t.getAttribute('data-pick-role') || 'colaborador';
+      }
+    });
+
+    document.getElementById('btnUpdateLocation').addEventListener('click', updateLocation);
     document.getElementById('btnActivate').addEventListener('click', onActivate);
     document.getElementById('btnStop').addEventListener('click', onStop);
     document.getElementById('btnSafe').addEventListener('click', onSafe);
     document.getElementById('btnHelp').addEventListener('click', onHelp);
     document.getElementById('btnResetReport').addEventListener('click', resetTriple);
-    document.getElementById('btnSaveProfile').addEventListener('click', saveProfile);
     document.getElementById('btnSyncNow').addEventListener('click', syncPendingReports);
     document.getElementById('btnRefreshHealth').addEventListener('click', refreshHealth);
     document.getElementById('healthRows').addEventListener('click', onHealthRowsClick);
@@ -961,19 +1445,32 @@
         refreshHealth();
         refreshFcmToken();
         pollSiren();
-        syncPendingReports();
+        var s = loadSession();
+        if (s && s.email) {
+          syncUserRoleFromFirestore(s).then(function () {
+            renderAuthState();
+            syncPendingReports();
+          });
+        }
       }
     });
 
     window.addEventListener('online', syncPendingReports);
 
-    renderProfileForm();
+    var existing = loadSession();
+    renderAuthState();
+    if (existing && existing.email) {
+      syncUserRoleFromFirestore(existing).then(function () {
+        renderAuthState();
+        syncPendingReports();
+      });
+    }
+
     resetTriple();
     renderReports();
     refreshHealth();
     renderFcmPanel(loadStoredFcmToken());
     refreshFcmToken();
-    syncPendingReports();
     startSirenPoll();
   }
 
