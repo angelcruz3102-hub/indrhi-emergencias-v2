@@ -13,13 +13,22 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class NativeBridge(private val activity: Activity) {
 
     private val player: EmergencySirenPlayer = EmergencySirenPlayer.getInstance(activity.applicationContext)
+
+    @Volatile
+    private var isDownloadingUpdate: Boolean = false
 
     @JavascriptInterface
     fun testAlarm(): String {
@@ -124,6 +133,172 @@ class NativeBridge(private val activity: Activity) {
             obj.toString()
         } catch (t: Throwable) {
             errorJson(t)
+        }
+    }
+
+    @JavascriptInterface
+    fun canInstallPackages(): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                activity.packageManager.canRequestPackageInstalls()
+            } else {
+                true
+            }
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    @JavascriptInterface
+    fun openUnknownSourcesSettings(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                data = Uri.parse("package:" + activity.packageName)
+            }
+            launchSettings(intent, "android.settings.MANAGE_UNKNOWN_APP_SOURCES")
+        } else {
+            "{\"ok\":true,\"action\":\"not_required\"}"
+        }
+    }
+
+    @JavascriptInterface
+    fun downloadAndInstallUpdate(apkUrl: String): String {
+        if (isDownloadingUpdate) {
+            return "{\"ok\":false,\"error\":\"Ya hay una descarga en curso\"}"
+        }
+        val cleanUrl = apkUrl.trim()
+        if (!cleanUrl.startsWith("https://")) {
+            return "{\"ok\":false,\"error\":\"El enlace debe comenzar por https://\"}"
+        }
+
+        isDownloadingUpdate = true
+        notifyUpdateState("downloading", "Descargando actualización...")
+
+        Thread {
+            try {
+                var currentUrl = cleanUrl
+                var conn: HttpURLConnection? = null
+                var redirects = 0
+
+                while (redirects < 6) {
+                    val urlObj = URL(currentUrl)
+                    conn = (urlObj.openConnection() as HttpURLConnection).apply {
+                        instanceFollowRedirects = false
+                        connectTimeout = 20000
+                        readTimeout = 60000
+                        setRequestProperty("User-Agent", "INDRHI-Emergencias-Android")
+                    }
+                    val code = conn.responseCode
+                    if (code == HttpURLConnection.HTTP_MOVED_TEMP ||
+                        code == HttpURLConnection.HTTP_MOVED_PERM ||
+                        code == HttpURLConnection.HTTP_SEE_OTHER ||
+                        code == 307 || code == 308
+                    ) {
+                        val nextLoc = conn.getHeaderField("Location") ?: break
+                        conn.disconnect()
+                        currentUrl = URL(urlObj, nextLoc).toString()
+                        redirects++
+                    } else {
+                        break
+                    }
+                }
+
+                if (conn == null || conn.responseCode !in 200..299) {
+                    val code = conn?.responseCode ?: -1
+                    conn?.disconnect()
+                    isDownloadingUpdate = false
+                    notifyUpdateState("error", "Error HTTP $code al descargar el APK.")
+                    return@Thread
+                }
+
+                val totalBytes = conn.contentLengthLong
+                val outFile = File(activity.cacheDir, "indrhi-update.apk")
+                if (outFile.exists()) outFile.delete()
+
+                conn.inputStream.use { input ->
+                    FileOutputStream(outFile).use { output ->
+                        val buffer = ByteArray(8192)
+                        var downloaded = 0L
+                        var lastPct = -1
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read == -1) break
+                            output.write(buffer, 0, read)
+                            downloaded += read
+                            if (totalBytes > 0) {
+                                val pct = ((downloaded * 100L) / totalBytes).toInt()
+                                if (pct != lastPct && pct % 10 == 0) {
+                                    lastPct = pct
+                                    notifyUpdateState("downloading", "Descargando: $pct%")
+                                }
+                            }
+                        }
+                    }
+                }
+                conn.disconnect()
+                isDownloadingUpdate = false
+
+                if (!canInstallPackages()) {
+                    notifyUpdateState("permission_required", "Activa 'Instalar apps desconocidas' para INDRHI Emergencias y luego pulsa Instalar.")
+                    openUnknownSourcesSettings()
+                } else {
+                    notifyUpdateState("ready", "Descarga lista. Abriendo instalador...")
+                    launchApkInstaller(outFile)
+                }
+            } catch (t: Throwable) {
+                isDownloadingUpdate = false
+                notifyUpdateState("error", "Fallo en descarga: " + (t.message ?: t.javaClass.simpleName))
+            }
+        }.start()
+
+        return "{\"ok\":true}"
+    }
+
+    @JavascriptInterface
+    fun installPendingUpdate(): String {
+        return try {
+            val outFile = File(activity.cacheDir, "indrhi-update.apk")
+            if (!outFile.exists()) {
+                return "{\"ok\":false,\"error\":\"No hay archivo descargado\"}"
+            }
+            if (!canInstallPackages()) {
+                openUnknownSourcesSettings()
+                return "{\"ok\":false,\"error\":\"Falta permiso para instalar aplicaciones\"}"
+            }
+            launchApkInstaller(outFile)
+            "{\"ok\":true}"
+        } catch (t: Throwable) {
+            errorJson(t)
+        }
+    }
+
+    private fun launchApkInstaller(apkFile: File) {
+        activity.runOnUiThread {
+            try {
+                val apkUri = FileProvider.getUriForFile(
+                    activity,
+                    activity.packageName + ".fileprovider",
+                    apkFile
+                )
+                val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(apkUri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                activity.startActivity(installIntent)
+            } catch (t: Throwable) {
+                notifyUpdateState("error", "No se pudo abrir el instalador: " + (t.message ?: "error"))
+            }
+        }
+    }
+
+    private fun notifyUpdateState(state: String, detail: String) {
+        activity.runOnUiThread {
+            try {
+                val rootWeb = activity.window?.decorView?.findViewById<android.view.ViewGroup>(android.R.id.content)?.getChildAt(0) as? WebView
+                val js = "window.onUpdateDownloadState && window.onUpdateDownloadState(" +
+                    JSONObject.quote(state) + "," + JSONObject.quote(detail) + ")"
+                rootWeb?.evaluateJavascript(js, null)
+            } catch (_: Throwable) {}
         }
     }
 
