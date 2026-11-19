@@ -59,6 +59,20 @@
   .banner.visible { display: block; }
   .hidden { display: none !important; }
 
+  .update-card {
+    background: #E3F2FD;
+    border: 2px solid var(--azul);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 10px 0;
+    color: #0D47A1;
+  }
+  @media (prefers-color-scheme: dark) {
+    .update-card { background: #10253E; color: #BBDEFB; }
+  }
+  .update-title { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+  .update-notes { font-size: 0.85rem; margin-bottom: 10px; }
+
   .session-bar {
     display: flex;
     align-items: center;
@@ -302,6 +316,17 @@
 
   <div class="banner" id="previewBanner">Modo vista previa: sin puente nativo. Los controles de sirena y ajustes no funcionarán aquí.</div>
 
+  <!-- Aviso automático de nueva versión de la aplicación -->
+  <div class="update-card hidden" id="updateCard">
+    <div class="update-title" id="updateTitle">Nueva versión disponible</div>
+    <div class="update-notes" id="updateNotes">Hay una mejora disponible para INDRHI Emergencias.</div>
+    <div style="display:grid;grid-template-columns:1fr;gap:8px">
+      <button class="btn btn-primary-dark btn-small" id="btnStartUpdate" type="button">Descargar e instalar actualización</button>
+      <button class="btn btn-safe btn-small hidden" id="btnInstallDownloaded" type="button">Instalar APK descargado</button>
+    </div>
+    <div id="updateProgressMsg" style="font-size:0.82rem;margin-top:6px;font-weight:700"></div>
+  </div>
+
   <!-- Barra de sesión activa -->
   <div class="session-bar hidden" id="sessionBar">
     <div class="session-info">
@@ -370,6 +395,27 @@
       <button class="btn btn-secondary btn-small btn-block" id="btnLoadUsers" type="button">Ver usuarios registrados</button>
       <div id="adminUsersList" style="margin-top:8px"></div>
     </div>
+
+    <hr style="border:none;border-top:1px solid var(--borde);margin:16px 0">
+    <h2 style="margin-top:0">Publicar nueva versión APK (OTA)</h2>
+    <div class="field-group">
+      <label for="otaVersionCode">Código de versión (entero mayor al actual)</label>
+      <input type="number" id="otaVersionCode" placeholder="Ej. 2">
+    </div>
+    <div class="field-group">
+      <label for="otaVersionName">Nombre de versión visible</label>
+      <input type="text" id="otaVersionName" placeholder="Ej. 1.1.0">
+    </div>
+    <div class="field-group">
+      <label for="otaApkUrl">Enlace directo al APK (GitHub Releases)</label>
+      <input type="url" id="otaApkUrl" value="https://github.com/angelcruz3102-hub/indrhi-emergencias-v2/releases/latest/download/app-debug.apk">
+    </div>
+    <div class="field-group">
+      <label for="otaNotes">Novedades de esta versión</label>
+      <input type="text" id="otaNotes" placeholder="Ej. Mejoras en alerta remota y control de roles">
+    </div>
+    <button class="btn btn-primary-dark btn-small btn-block" id="btnPublishOta" type="button">Publicar aviso de actualización</button>
+    <div id="otaPublishMsg" style="font-size:0.82rem;margin-top:6px;color:var(--detalle)"></div>
   </div>
 
   <div class="siren-status" id="sirenStatus">
@@ -462,7 +508,7 @@
     <button class="btn btn-secondary btn-small" id="btnCopyFcm" type="button">Copiar token</button>
   </div>
 
-  <footer>INDRHI Emergencias · v1.0.0 · Fase 4 (Auth @indrhi.gob.do & Roles)</footer>
+  <footer id="appFooter">INDRHI Emergencias · Fase 5 (OTA & Roles)</footer>
 
 <script>
 (function () {
@@ -477,10 +523,11 @@
   var DEVICE_ID_KEY = 'indrhi.deviceId';
   var MAX_REPORTS = 50;
 
-  var authMode = 'login'; // 'login' | 'register'
+  var authMode = 'login';
   var sirenPollTimer = null;
   var tripleSelection = { tipo: null, lugar: null, estado: null };
   var isSyncing = false;
+  var latestOtaApkUrl = '';
 
   function getBridge() {
     return (typeof window !== 'undefined' && window.IndrhiBridge) ? window.IndrhiBridge : null;
@@ -538,6 +585,130 @@
       try { localStorage.setItem(DEVICE_ID_KEY, id); } catch (e) {}
     }
     return id;
+  }
+
+  // ---------- Actualización automática de APK (OTA) ----------
+  function checkAppUpdate() {
+    var ctx = parseJson(safeCall('getContext', null)) || {};
+    var currentCode = Number(ctx.versionCode || 1);
+    var currentName = ctx.versionName || '1.0.0';
+
+    var footer = document.getElementById('appFooter');
+    if (footer) {
+      footer.textContent = 'INDRHI Emergencias · v' + currentName + ' (build ' + currentCode + ')';
+    }
+
+    fetch(firestoreBaseUrl() + '/config/version', { method: 'GET' })
+      .then(function (res) {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(function (doc) {
+        if (!doc || !doc.fields) return;
+        var f = doc.fields;
+        var remoteCode = Number((f.latestVersionCode && (f.latestVersionCode.integerValue || f.latestVersionCode.stringValue)) || 0);
+        var remoteName = (f.latestVersionName && f.latestVersionName.stringValue) ? f.latestVersionName.stringValue : '';
+        var apkUrl = (f.apkUrl && f.apkUrl.stringValue) ? f.apkUrl.stringValue : '';
+        var notes = (f.releaseNotes && f.releaseNotes.stringValue) ? f.releaseNotes.stringValue : 'Nueva actualización institucional disponible.';
+
+        if (remoteCode > currentCode && apkUrl) {
+          latestOtaApkUrl = apkUrl;
+          document.getElementById('updateTitle').textContent = 'Nueva versión disponible: v' + (remoteName || remoteCode);
+          document.getElementById('updateNotes').textContent = notes;
+          document.getElementById('updateCard').classList.remove('hidden');
+        } else {
+          document.getElementById('updateCard').classList.add('hidden');
+        }
+      })
+      .catch(function () {});
+  }
+
+  function startOtaDownload() {
+    if (!latestOtaApkUrl) return;
+    var msgEl = document.getElementById('updateProgressMsg');
+    msgEl.style.color = '#1565C0';
+    msgEl.textContent = 'Iniciando descarga...';
+    var res = parseJson(safeCallArg('downloadAndInstallUpdate', latestOtaApkUrl, null));
+    if (res && res.ok === false) {
+      msgEl.style.color = '#C62828';
+      msgEl.textContent = res.error || 'No se pudo iniciar la descarga.';
+    }
+  }
+
+  function installDownloadedOta() {
+    var res = parseJson(safeCall('installPendingUpdate', null));
+    if (res && res.ok === false) {
+      document.getElementById('updateProgressMsg').textContent = res.error || 'No se pudo instalar.';
+    }
+  }
+
+  window.onUpdateDownloadState = function (state, detail) {
+    var msgEl = document.getElementById('updateProgressMsg');
+    var btnInstall = document.getElementById('btnInstallDownloaded');
+    if (!msgEl) return;
+    msgEl.textContent = detail || '';
+    if (state === 'error') {
+      msgEl.style.color = '#C62828';
+    } else if (state === 'permission_required' || state === 'ready') {
+      msgEl.style.color = '#2E7D32';
+      if (btnInstall) btnInstall.classList.remove('hidden');
+    } else {
+      msgEl.style.color = '#1565C0';
+    }
+  };
+
+  function publishOtaConfig() {
+    var s = loadSession();
+    if (!s || s.rol !== 'admin') {
+      window.alert('Solo un administrador puede publicar actualizaciones.');
+      return;
+    }
+    var codeVal = parseInt(document.getElementById('otaVersionCode').value, 10);
+    var nameVal = document.getElementById('otaVersionName').value.trim();
+    var urlVal = document.getElementById('otaApkUrl').value.trim();
+    var notesVal = document.getElementById('otaNotes').value.trim();
+    var msgEl = document.getElementById('otaPublishMsg');
+
+    if (!codeVal || codeVal < 1 || !nameVal || !urlVal) {
+      msgEl.style.color = '#C62828';
+      msgEl.textContent = 'Completa el código numérico, nombre de versión y URL del APK.';
+      return;
+    }
+
+    msgEl.style.color = '#1565C0';
+    msgEl.textContent = 'Publicando aviso de actualización...';
+
+    getValidIdToken().then(function (idToken) {
+      var body = {
+        fields: {
+          latestVersionCode: { integerValue: String(codeVal) },
+          latestVersionName: { stringValue: nameVal },
+          apkUrl: { stringValue: urlVal },
+          releaseNotes: { stringValue: notesVal || 'Mejoras generales y estabilidad.' },
+          actualizadoIso: { stringValue: new Date().toISOString() }
+        }
+      };
+      return fetch(firestoreBaseUrl() + '/config/version', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + idToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+    }).then(function (res) {
+      if (res.ok) {
+        msgEl.style.color = '#2E7D32';
+        msgEl.textContent = '✔ Versión v' + nameVal + ' (build ' + codeVal + ') publicada para todos los dispositivos.';
+        checkAppUpdate();
+      } else {
+        msgEl.style.color = '#C62828';
+        msgEl.textContent = 'Error HTTP ' + res.status + ' al publicar actualización.';
+      }
+    }).catch(function () {
+      msgEl.style.color = '#C62828';
+      msgEl.textContent = 'Sin conexión para publicar la actualización.';
+    });
   }
 
   // ---------- Sesión y Firebase Authentication ----------
@@ -716,7 +887,6 @@
             return session;
           });
         } else {
-          // Crear documento de usuario por primera vez
           session.rol = (session.email === DEFAULT_ADMIN_EMAIL) ? 'admin' : 'colaborador';
           saveSession(session);
           return upsertUserDoc(session, idToken).then(function () { return session; });
@@ -788,6 +958,10 @@
 
     if (rol === 'admin') {
       adminPanel.classList.remove('hidden');
+      var ctx = parseJson(safeCall('getContext', null)) || {};
+      var nextCode = Number(ctx.versionCode || 1) + 1;
+      var codeInp = document.getElementById('otaVersionCode');
+      if (codeInp && !codeInp.value) codeInp.value = String(nextCode);
     } else {
       adminPanel.classList.add('hidden');
     }
@@ -1400,6 +1574,10 @@
   function bind() {
     setPreviewBanner();
 
+    document.getElementById('btnStartUpdate').addEventListener('click', startOtaDownload);
+    document.getElementById('btnInstallDownloaded').addEventListener('click', installDownloadedOta);
+    document.getElementById('btnPublishOta').addEventListener('click', publishOtaConfig);
+
     document.getElementById('tabLogin').addEventListener('click', function () { setAuthMode('login'); });
     document.getElementById('tabRegister').addEventListener('click', function () { setAuthMode('register'); });
     document.getElementById('btnAuthSubmit').addEventListener('click', handleAuthSubmit);
@@ -1442,6 +1620,7 @@
 
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) {
+        checkAppUpdate();
         refreshHealth();
         refreshFcmToken();
         pollSiren();
@@ -1466,6 +1645,7 @@
       });
     }
 
+    checkAppUpdate();
     resetTriple();
     renderReports();
     refreshHealth();
