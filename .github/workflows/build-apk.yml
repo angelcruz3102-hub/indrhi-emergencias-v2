@@ -56,12 +56,25 @@ jobs:
             echo "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
           fi
 
+      - name: Decodificar Keystore fijo para OTA
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > app/keystore.jks
+            ls -lh app/keystore.jks
+          fi
+
       - name: Generar Gradle Wrapper 8.7
         run: |
           gradle wrapper --gradle-version 8.7
           chmod +x gradlew
 
       - name: Compilar APK debug
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Verificar APK
