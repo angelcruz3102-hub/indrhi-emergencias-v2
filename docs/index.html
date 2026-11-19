@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centro de Control · INDRHI Emergencias</title>
+<style>
+  :root {
+    --bg: #0F172A;
+    --panel: #1E293B;
+    --panel-alt: #273549;
+    --border: #334155;
+    --text: #F8FAFC;
+    --muted: #94A3B8;
+    --red: #DC2626;
+    --red-dark: #991B1B;
+    --green: #16A34A;
+    --blue: #2563EB;
+    --amber: #D97706;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+  }
+  .hidden { display: none !important; }
+
+  header {
+    background: var(--panel);
+    border-bottom: 3px solid var(--red);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-badge {
+    background: var(--red);
+    color: #fff;
+    font-weight: 800;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+  }
+  .brand h1 { margin: 0; font-size: 1.25rem; }
+  .brand small { color: var(--muted); display: block; font-size: 0.8rem; }
+
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pill {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot-live {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+  .login-wrap {
+    max-width: 440px;
+    margin: 50px auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  }
+  .login-wrap h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  .login-wrap p { margin: 0 0 18px; color: var(--muted); font-size: 0.88rem; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 5px; color: #CBD5E1; }
+  .field input, .field select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #0F172A;
+    color: var(--text);
+    font-size: 0.92rem;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--blue); border-color: transparent; }
+
+  .btn {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: #fff;
+    background: var(--blue);
+    transition: opacity 0.15s, transform 0.05s;
+    font-family: inherit;
+  }
+  .btn:hover { opacity: 0.92; }
+  .btn:active { transform: scale(0.98); }
+  .btn-block { width: 100%; }
+  .btn-red { background: var(--red); }
+  .btn-red-dark { background: var(--red-dark); }
+  .btn-green { background: var(--green); }
+  .btn-slate { background: #475569; }
+  .btn-sm { padding: 6px 10px; font-size: 0.78rem; }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .kpi-card.danger { border-color: var(--red); background: linear-gradient(180deg, rgba(220,38,38,0.16), var(--panel)); }
+  .kpi-card.safe { border-color: var(--green); }
+  .kpi-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; font-weight: 700; }
+  .kpi-value { font-size: 2rem; font-weight: 800; margin: 4px 0; }
+  .kpi-sub { font-size: 0.78rem; color: var(--muted); }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 980px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .siren-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .key-box {
+    background: #0F172A;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+  }
+  .status-line { font-size: 0.82rem; margin-top: 8px; min-height: 18px; }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .filter-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-btn {
+    background: #0F172A;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .filter-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; background: rgba(15,23,42,0.5); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .badge-safe { background: rgba(22,163,74,0.2); color: #4ADE80; border: 1px solid rgba(22,163,74,0.4); }
+  .badge-help { background: rgba(220,38,38,0.25); color: #FCA5A5; border: 1px solid rgba(220,38,38,0.5); }
+  .badge-info { background: rgba(37,99,235,0.2); color: #93C5FD; border: 1px solid rgba(37,99,235,0.4); }
+
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 0.76rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="brand-badge">INDRHI</span>
+    <div>
+      <h1>Centro de Monitoreo y Alertas</h1>
+      <small>Panel de Control Institucional · Proyecto: indrhi-emergencias</small>
+    </div>
+  </div>
+  <div class="header-actions hidden" id="headerSession">
+    <div class="pill"><span class="dot-live"></span> Sincronización activa (<span id="countdownTxt">5s</span>)</div>
+    <div class="pill" id="userBadge">usuario@indrhi.gob.do</div>
+    <button class="btn btn-slate btn-sm" id="btnLogout" type="button">Cerrar sesión</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- PANTALLA DE ACCESO -->
+  <div class="login-wrap" id="loginView">
+    <h2>Acceso al Centro de Control</h2>
+    <p>Inicia sesión con tu cuenta institucional <strong>@indrhi.gob.do</strong> (rol Administrador o Brigadista).</p>
+
+    <div class="field" id="apiKeyFieldWrap">
+      <label for="cfgApiKey">Firebase Web API Key</label>
+      <input type="password" id="cfgApiKey" placeholder="AIzaSy...">
+    </div>
+    <div class="field">
+      <label for="loginEmail">Correo institucional</label>
+      <input type="email" id="loginEmail" placeholder="ajfeliz@indrhi.gob.do" autocomplete="email">
+    </div>
+    <div class="field">
+      <label for="loginPass">Contraseña</label>
+      <input type="password" id="loginPass" placeholder="••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-block" id="btnLogin" type="button">Conectar al panel</button>
+    <div class="status-line" id="loginMsg" style="color:#FCA5A5"></div>
+  </div>
+
+  <!-- DASHBOARD PRINCIPAL -->
+  <div class="hidden" id="dashboardView">
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card safe">
+        <div class="kpi-label">Reportados "A salvo"</div>
+        <div class="kpi-value" id="kpiSafe" style="color:#4ADE80">0</div>
+        <div class="kpi-sub">Colaboradores confirmados sin novedad</div>
+      </div>
+      <div class="kpi-card danger">
+        <div class="kpi-label">Solicitudes de Auxilio</div>
+        <div class="kpi-value" id="kpiHelp" style="color:#F87171">0</div>
+        <div class="kpi-sub">"Necesito ayuda" o "Hay heridos"</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Reportes Recibidos</div>
+        <div class="kpi-value" id="kpiTotal">0</div>
+        <div class="kpi-sub">Última lectura: <span id="lastSyncTime">—</span></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Dispositivos Vinculados</div>
+        <div class="kpi-value" id="kpiDevices" style="color:#60A5FA">0</div>
+        <div class="kpi-sub" id="kpiBuildingsSub">ED1: 0 · ED2: 0 · Ext: 0</div>
+      </div>
+    </div>
+
+    <div class="main-grid">
+
+      <!-- COLUMNA IZQUIERDA: DISPARO DE SIRENA REMOTA -->
+      <div>
+        <div class="card" style="border-color: var(--red);">
+          <h2>Disparo Remoto de Sirena</h2>
+
+          <div class="key-box">
+            <div style="font-weight:700;margin-bottom:4px">1. Credencial de envío (service-account.json)</div>
+            <div style="color:var(--muted);margin-bottom:8px">Carga tu archivo JSON local en memoria RAM para firmar alertas masivas (nunca se sube a la nube).</div>
+            <input type="file" id="saFileInput" accept=".json" style="font-size:0.8rem;width:100%">
+            <div id="saStatus" style="margin-top:6px;font-weight:700;color:#FBBF24">⚠ Sin llave cargada</div>
+          </div>
+
+          <div class="field">
+            <label for="fcmTargetType">2. Destino de la alerta</label>
+            <select id="fcmTargetType">
+              <option value="topic:indrhi_todos">📢 Todos los edificios (indrhi_todos)</option>
+              <option value="topic:indrhi_ed1">🏢 Edificio ED1 (indrhi_ed1)</option>
+              <option value="topic:indrhi_ed2">🏢 Edificio ED2 (indrhi_ed2)</option>
+              <option value="topic:indrhi_exterior">🌳 Exterior / Regional (indrhi_exterior)</option>
+              <option value="token">📱 Dispositivo individual (Token FCM)</option>
+            </select>
+          </div>
+
+          <div class="field hidden" id="singleTokenBox">
+            <label for="fcmSingleToken">Token FCM del teléfono</label>
+            <input type="text" id="fcmSingleToken" placeholder="Pega o selecciona un dispositivo de la tabla">
+          </div>
+
+          <div class="field">
+            <label for="alertTitle">Título en pantalla bloqueada</label>
+            <input type="text" id="alertTitle" value="EVACUACION DE EMERGENCIA INDRHI">
+          </div>
+
+          <div class="field">
+            <label for="alertBody">Instrucción al personal</label>
+            <input type="text" id="alertBody" value="Alerta critica: dirijase de inmediato al punto de reunion.">
+          </div>
+
+          <div class="siren-btns">
+            <button class="btn btn-red" id="btnSendStart" type="button">ACTIVAR SIRENA</button>
+            <button class="btn btn-red-dark" id="btnSendStop" type="button">DETENER SIRENA</button>
+          </div>
+
+          <div class="status-line" id="fcmSendStatus"></div>
+
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+            <button class="btn btn-slate btn-sm btn-block" id="btnCopyPs" type="button">Copiar comando PowerShell equivalente</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMNA DERECHA: REPORTES EN TIEMPO REAL Y DISPOSITIVOS -->
+      <div>
+        <div class="card">
+          <h2>
+            <span>Reportes del Personal en Tiempo Real</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-green btn-sm" id="btnExportCsv" type="button">Exportar CSV</button>
+              <button class="btn btn-slate btn-sm" id="btnRefreshNow" type="button">Actualizar ahora</button>
+            </div>
+          </h2>
+
+          <div class="toolbar">
+            <div class="filter-group" id="reportFilters">
+              <button class="filter-btn active" data-filter="ALL" type="button">Todos</button>
+              <button class="filter-btn" data-filter="HELP" type="button">🚨 Auxilio / Heridos</button>
+              <button class="filter-btn" data-filter="SAFE" type="button">✅ A salvo</button>
+              <button class="filter-btn" data-filter="ED1" type="button">Edificio ED1</button>
+              <button class="filter-btn" data-filter="ED2" type="button">Edificio ED2</button>
+            </div>
+            <label style="font-size:0.8rem;color:var(--muted);cursor:pointer">
+              <input type="checkbox" id="chkSoundAlert" checked> Aviso sonoro ante auxilio
+            </label>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Estado</th>
+                  <th>Colaborador</th>
+                  <th>Tipo / Lugar</th>
+                  <th>Hora</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="reportsTbody">
+                <tr><td colspan="5" style="color:var(--muted)">Cargando reportes...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Dispositivos Registrados en la Nube</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Colaborador</th>
+                  <th>Rol</th>
+                  <th>Canal / Edificio</th>
+                  <th>Equipo / Versión</th>
+                  <th>Prueba individual</th>
+                </tr>
+              </thead>
+              <tbody id="devicesTbody">
+                <tr><td colspan="5" style="color:var(--muted)">Cargando dispositivos...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Opcional: pega aquí tu Firebase Web API Key (AIzaSy...) para que cualquier PC del INDRHI entre directo sin escribirla
+  var DEFAULT_WEB_API_KEY = 'BBYaIZOkHj08EMJabskw3MuE_IA_803TrbkZOxjqf6eMwdzpW-VeGplAMmZw-ttCMEehiyIUXI8yEs2BLL7o7ec';
+
+  var PROJECT_ID = 'indrhi-emergencias';
+  var FIRESTORE_URL = 'https://firestore.googleapis.com/v1/projects/' + PROJECT_ID + '/databases/(default)/documents';
+  var API_KEY_STORAGE = 'indrhi.web.apiKey';
+  var SESSION_STORAGE = 'indrhi.web.session';
+
+  var serviceAccountObj = null;
+  var currentFilter = 'ALL';
+  var cachedReports = [];
+  var knownHelpIds = {};
+  var initialLoadDone = false;
+  var pollTimer = null;
+  var secLeft = 5;
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function strVal(fields, key, def) {
+    if (!fields || !fields[key]) return def || '';
+    return fields[key].stringValue || fields[key].integerValue || def || '';
+  }
+
+  function playBeep() {
+    if (!document.getElementById('chkSoundAlert').checked) return;
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1174, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+    } catch (e) {}
+  }
+
+  function getApiKey() {
+    return DEFAULT_WEB_API_KEY || localStorage.getItem(API_KEY_STORAGE) || '';
+  }
+
+  function loadSession() {
+    try { return JSON.parse(localStorage.getItem(SESSION_STORAGE) || 'null'); } catch (e) { return null; }
+  }
+
+  function saveSession(s) {
+    if (!s) localStorage.removeItem(SESSION_STORAGE);
+    else localStorage.setItem(SESSION_STORAGE, JSON.stringify(s));
+  }
+
+  function getValidIdToken() {
+    var s = loadSession();
+    if (!s || !s.idToken) return Promise.resolve(null);
+    if (s.expiresAt && Date.now() < s.expiresAt) return Promise.resolve(s.idToken);
+    var apiKey = getApiKey();
+    if (!apiKey || !s.refreshToken) return Promise.resolve(s.idToken);
+
+    return fetch('https://securetoken.googleapis.com/v1/token?key=' + encodeURIComponent(apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(s.refreshToken)
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.id_token) {
+        s.idToken = d.id_token;
+        s.refreshToken = d.refresh_token || s.refreshToken;
+        s.expiresAt = Date.now() + (Number(d.expires_in || 3600) - 60) * 1000;
+        saveSession(s);
+        return s.idToken;
+      }
+      return null;
+    }).catch(function () { return s.idToken; });
+  }
+
+  function doLogin() {
+    var apiKey = DEFAULT_WEB_API_KEY || document.getElementById('cfgApiKey').value.trim();
+    var email = document.getElementById('loginEmail').value.trim().toLowerCase();
+    var pass = document.getElementById('loginPass').value;
+    var msg = document.getElementById('loginMsg');
+
+    if (!apiKey) { msg.textContent = 'Pega la Web API Key de Firebase.'; return; }
+    if (!email.endsWith('@indrhi.gob.do')) { msg.textContent = 'Usa tu correo institucional @indrhi.gob.do.'; return; }
+    if (!pass) { msg.textContent = 'Escribe tu contraseña.'; return; }
+
+    localStorage.setItem(API_KEY_STORAGE, apiKey);
+    msg.style.color = '#93C5FD';
+    msg.textContent = 'Autenticando...';
+
+    fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + encodeURIComponent(apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: pass, returnSecureToken: true })
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.error) {
+        msg.style.color = '#FCA5A5';
+        msg.textContent = 'Error: ' + data.error.message;
+        return;
+      }
+      var session = {
+        email: email,
+        idToken: data.idToken,
+        refreshToken: data.refreshToken,
+        expiresAt: Date.now() + (Number(data.expiresIn || 3600) - 60) * 1000,
+        rol: (email === 'ajfeliz@indrhi.gob.do') ? 'admin' : 'colaborador'
+      };
+      return fetch(FIRESTORE_URL + '/usuarios/' + encodeURIComponent(email), {
+        headers: { 'Authorization': 'Bearer ' + session.idToken }
+      }).then(function (uRes) {
+        return uRes.ok ? uRes.json() : null;
+      }).then(function (uDoc) {
+        if (uDoc && uDoc.fields) {
+          session.rol = strVal(uDoc.fields, 'rol', session.rol);
+        }
+        if (email === 'ajfeliz@indrhi.gob.do') session.rol = 'admin';
+        if (session.rol !== 'admin' && session.rol !== 'brigadista') {
+          msg.style.color = '#FCA5A5';
+          msg.textContent = 'Acceso denegado: este panel requiere rol Administrador o Brigadista.';
+          return;
+        }
+        saveSession(session);
+        msg.textContent = '';
+        enterDashboard();
+      });
+    }).catch(function () {
+      msg.style.color = '#FCA5A5';
+      msg.textContent = 'No se pudo conectar con Firebase.';
+    });
+  }
+
+  function enterDashboard() {
+    var s = loadSession();
+    if (!s) return;
+    document.getElementById('loginView').classList.add('hidden');
+    document.getElementById('dashboardView').classList.remove('hidden');
+    document.getElementById('headerSession').classList.remove('hidden');
+    document.getElementById('userBadge').textContent = s.email + ' (' + s.rol.toUpperCase() + ')';
+    fetchAllData();
+    startPolling();
+  }
+
+  function logout() {
+    saveSession(null);
+    if (pollTimer) clearInterval(pollTimer);
+    document.getElementById('dashboardView').classList.add('hidden');
+    document.getElementById('headerSession').classList.add('hidden');
+    document.getElementById('loginView').classList.remove('hidden');
+  }
+
+  function fetchAllData() {
+    getValidIdToken().then(function (token) {
+      if (!token) return;
+      var headers = { 'Authorization': 'Bearer ' + token };
+
+      Promise.all([
+        fetch(FIRESTORE_URL + '/reportes?pageSize=200', { headers: headers }).then(function (r) { return r.json(); }),
+        fetch(FIRESTORE_URL + '/dispositivos?pageSize=200', { headers: headers }).then(function (r) { return r.json(); })
+      ]).then(function (results) {
+        var repDocs = (results[0] && results[0].documents) ? results[0].documents : [];
+        var devDocs = (results[1] && results[1].documents) ? results[1].documents : [];
+
+        var reports = repDocs.map(function (d) {
+          var f = d.fields || {};
+          return {
+            id: strVal(f, 'id', d.name.split('/').pop()),
+            tipo: strVal(f, 'tipo', 'Reporte'),
+            lugar: strVal(f, 'lugar', 'No especificado'),
+            estado: strVal(f, 'estado', ''),
+            nombre: strVal(f, 'nombre', 'Anónimo'),
+            correo: strVal(f, 'correo', ''),
+            edificioAsignado: strVal(f, 'edificioAsignado', ''),
+            fcmToken: strVal(f, 'fcmToken', ''),
+            dispositivo: strVal(f, 'dispositivo', ''),
+            fechaIso: strVal(f, 'fechaIso', '')
+          };
+        }).sort(function (a, b) {
+          return (b.fechaIso || '').localeCompare(a.fechaIso || '');
+        });
+
+        var devices = devDocs.map(function (d) {
+          var f = d.fields || {};
+          return {
+            nombre: strVal(f, 'nombre', 'Sin nombre'),
+            correo: strVal(f, 'correo', ''),
+            rol: strVal(f, 'rol', 'colaborador'),
+            edificio: strVal(f, 'edificio', ''),
+            topicEdificio: strVal(f, 'topicEdificio', ''),
+            modelo: strVal(f, 'modelo', 'Android'),
+            versionApp: strVal(f, 'versionApp', ''),
+            fcmToken: strVal(f, 'fcmToken', ''),
+            actualizadoIso: strVal(f, 'actualizadoIso', '')
+          };
+        }).sort(function (a, b) {
+          return (b.actualizadoIso || '').localeCompare(a.actualizadoIso || '');
+        });
+
+        cachedReports = reports;
+        updateKPIs(reports, devices);
+        renderReportsTable();
+        renderDevicesTable(devices);
+        document.getElementById('lastSyncTime').textContent = new Date().toLocaleTimeString('es-DO');
+      }).catch(function () {});
+    });
+  }
+
+  function updateKPIs(reports, devices) {
+    var safe = 0, help = 0, newEmergency = false;
+    reports.forEach(function (r) {
+      var st = (r.estado || '').toLowerCase();
+      if (st.indexOf('salvo') !== -1) {
+        safe++;
+      } else if (st.indexOf('ayuda') !== -1 || st.indexOf('herido') !== -1) {
+        help++;
+        if (initialLoadDone && !knownHelpIds[r.id]) {
+          newEmergency = true;
+        }
+        knownHelpIds[r.id] = true;
+      }
+    });
+    initialLoadDone = true;
+    if (newEmergency) playBeep();
+
+    document.getElementById('kpiSafe').textContent = safe;
+    document.getElementById('kpiHelp').textContent = help;
+    document.getElementById('kpiTotal').textContent = reports.length;
+    document.getElementById('kpiDevices').textContent = devices.length;
+
+    var ed1 = 0, ed2 = 0, ext = 0;
+    devices.forEach(function (d) {
+      if (d.topicEdificio === 'indrhi_ed1') ed1++;
+      else if (d.topicEdificio === 'indrhi_ed2') ed2++;
+      else ext++;
+    });
+    document.getElementById('kpiBuildingsSub').textContent = 'ED1: ' + ed1 + ' · ED2: ' + ed2 + ' · Ext: ' + ext;
+  }
+
+  function getFilteredReports() {
+    return cachedReports.filter(function (r) {
+      var st = (r.estado || '').toLowerCase();
+      if (currentFilter === 'HELP') return st.indexOf('ayuda') !== -1 || st.indexOf('herido') !== -1;
+      if (currentFilter === 'SAFE') return st.indexOf('salvo') !== -1;
+      if (currentFilter === 'ED1') return (r.lugar + ' ' + r.edificioAsignado).indexOf('ED1') !== -1;
+      if (currentFilter === 'ED2') return (r.lugar + ' ' + r.edificioAsignado).indexOf('ED2') !== -1;
+      return true;
+    });
+  }
+
+  function renderReportsTable() {
+    var tbody = document.getElementById('reportsTbody');
+    var filtered = getFilteredReports();
+
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">No hay reportes para este filtro.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(function (r) {
+      var st = (r.estado || '').toLowerCase();
+      var badgeCls = 'badge-info';
+      if (st.indexOf('salvo') !== -1) badgeCls = 'badge-safe';
+      else if (st.indexOf('ayuda') !== -1 || st.indexOf('herido') !== -1) badgeCls = 'badge-help';
+
+      var hora = r.fechaIso ? new Date(r.fechaIso).toLocaleString('es-DO') : '—';
+      var actionBtn = r.fcmToken
+        ? '<button class="btn btn-slate btn-sm" type="button" data-target-token="' + escapeHtml(r.fcmToken) + '">Seleccionar móvil</button>'
+        : '<span class="mono">Sin token</span>';
+
+      return '<tr>' +
+        '<td><span class="badge ' + badgeCls + '">' + escapeHtml(r.estado || 'Reporte') + '</span></td>' +
+        '<td><strong>' + escapeHtml(r.nombre) + '</strong><br><span class="mono">' + escapeHtml(r.correo) + '</span></td>' +
+        '<td><strong>' + escapeHtml(r.tipo) + '</strong><br><span style="color:var(--muted);font-size:0.8rem">' + escapeHtml(r.lugar) + '</span></td>' +
+        '<td style="font-size:0.8rem">' + escapeHtml(hora) + '</td>' +
+        '<td>' + actionBtn + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function exportCsv() {
+    var rows = getFilteredReports();
+    if (!rows.length) {
+      window.alert('No hay reportes visibles para exportar.');
+      return;
+    }
+    var lines = ['"Estado","Nombre","Correo","Tipo","Lugar","Edificio Asignado","Dispositivo","Fecha ISO"'];
+    rows.forEach(function (r) {
+      var vals = [r.estado, r.nombre, r.correo, r.tipo, r.lugar, r.edificioAsignado, r.dispositivo, r.fechaIso].map(function (v) {
+        return '"' + String(v || '').replace(/"/g, '""') + '"';
+      });
+      lines.push(vals.join(','));
+    });
+    var blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'reportes-indrhi-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function renderDevicesTable(devices) {
+    var tbody = document.getElementById('devicesTbody');
+    if (!devices.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">No hay dispositivos vinculados aún.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = devices.map(function (d) {
+      return '<tr>' +
+        '<td><strong>' + escapeHtml(d.nombre) + '</strong><br><span class="mono">' + escapeHtml(d.correo) + '</span></td>' +
+        '<td><span class="badge badge-info">' + escapeHtml(d.rol.toUpperCase()) + '</span></td>' +
+        '<td>' + escapeHtml(d.edificio) + '<br><span class="mono">' + escapeHtml(d.topicEdificio) + '</span></td>' +
+        '<td>' + escapeHtml(d.modelo) + '<br><span class="mono">v' + escapeHtml(d.versionApp) + '</span></td>' +
+        '<td><button class="btn btn-slate btn-sm" type="button" data-target-token="' + escapeHtml(d.fcmToken) + '">Apuntar alerta</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    secLeft = 5;
+    pollTimer = setInterval(function () {
+      secLeft--;
+      if (secLeft <= 0) {
+        secLeft = 5;
+        fetchAllData();
+      }
+      document.getElementById('countdownTxt').textContent = secLeft + 's';
+    }, 1000);
+  }
+
+  function base64UrlEncode(input) {
+    var bytes = (typeof input === 'string') ? new TextEncoder().encode(input) : new Uint8Array(input);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function pemToArrayBuffer(pem) {
+    var clean = pem.replace(/-----BEGIN PRIVATE KEY-----/g, '')
+                   .replace(/-----END PRIVATE KEY-----/g, '')
+                   .replace(/\s+/g, '');
+    var bin = atob(clean);
+    var buf = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return buf.buffer;
+  }
+
+  function getGoogleAccessToken(sa) {
+    var now = Math.floor(Date.now() / 1000);
+    var header = base64UrlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+    var payload = base64UrlEncode(JSON.stringify({
+      iss: sa.client_email,
+      scope: 'https://www.googleapis.com/auth/firebase.messaging',
+      aud: sa.token_uri || 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600
+    }));
+    var signingInput = header + '.' + payload;
+
+    return crypto.subtle.importKey(
+      'pkcs8',
+      pemToArrayBuffer(sa.private_key),
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['sign']
+    ).then(function (cryptoKey) {
+      return crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signingInput));
+    }).then(function (sigBuffer) {
+      var jwt = signingInput + '.' + base64UrlEncode(sigBuffer);
+      return fetch(sa.token_uri || 'https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + encodeURIComponent(jwt)
+      });
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.access_token) throw new Error('No se obtuvo access_token de Google.');
+      return data.access_token;
+    });
+  }
+
+  function dispatchFcm(action) {
+    var statusEl = document.getElementById('fcmSendStatus');
+    if (!serviceAccountObj) {
+      statusEl.style.color = '#FCA5A5';
+      statusEl.textContent = 'Carga primero tu archivo service-account.json arriba.';
+      return;
+    }
+
+    var targetVal = document.getElementById('fcmTargetType').value;
+    var title = document.getElementById('alertTitle').value.trim() || 'ALERTA INDRHI';
+    var body = document.getElementById('alertBody').value.trim() || 'Evacuacion inmediata.';
+
+    var messageObj = {
+      android: { priority: 'high' },
+      data: { action: action, title: title, body: body }
+    };
+
+    if (targetVal.indexOf('topic:') === 0) {
+      messageObj.topic = targetVal.split(':')[1];
+    } else {
+      var singleTok = document.getElementById('fcmSingleToken').value.trim();
+      if (!singleTok) {
+        statusEl.style.color = '#FCA5A5';
+        statusEl.textContent = 'Selecciona un dispositivo de la tabla o pega su token FCM.';
+        return;
+      }
+      messageObj.token = singleTok;
+    }
+
+    if (action === 'start_siren') {
+      var ok = window.confirm('¿Confirmas disparar la SIRENA ROJA al 100% hacia: ' + (messageObj.topic || 'dispositivo individual') + '?');
+      if (!ok) return;
+    }
+
+    statusEl.style.color = '#93C5FD';
+    statusEl.textContent = 'Firmando y enviando orden a Firebase Cloud Messaging...';
+
+    getGoogleAccessToken(serviceAccountObj).then(function (accessToken) {
+      return fetch('https://fcm.googleapis.com/v1/projects/' + PROJECT_ID + '/messages:send', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: messageObj })
+      });
+    }).then(function (res) {
+      return res.json().then(function (d) { return { ok: res.ok, data: d }; });
+    }).then(function (r) {
+      if (r.ok) {
+        statusEl.style.color = '#4ADE80';
+        statusEl.textContent = '✔ Orden "' + action + '" enviada con éxito (' + (r.data.name || 'OK') + ').';
+      } else {
+        statusEl.style.color = '#FCA5A5';
+        statusEl.textContent = 'Error FCM: ' + JSON.stringify(r.data);
+      }
+    }).catch(function (err) {
+      statusEl.style.color = '#FCA5A5';
+      statusEl.textContent = 'Error: ' + err.message;
+    });
+  }
+
+  if (DEFAULT_WEB_API_KEY) {
+    document.getElementById('apiKeyFieldWrap').classList.add('hidden');
+  } else {
+    document.getElementById('cfgApiKey').value = getApiKey();
+  }
+
+  document.getElementById('btnLogin').addEventListener('click', doLogin);
+  document.getElementById('btnLogout').addEventListener('click', logout);
+  document.getElementById('btnRefreshNow').addEventListener('click', fetchAllData);
+  document.getElementById('btnExportCsv').addEventListener('click', exportCsv);
+
+  document.getElementById('saFileInput').addEventListener('change', function (ev) {
+    var file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var parsed = JSON.parse(e.target.result);
+        if (!parsed.private_key || !parsed.client_email) throw new Error('JSON inválido');
+        serviceAccountObj = parsed;
+        var st = document.getElementById('saStatus');
+        st.style.color = '#4ADE80';
+        st.textContent = '✔ Llave lista: ' + parsed.client_email;
+      } catch (err) {
+        serviceAccountObj = null;
+        document.getElementById('saStatus').style.color = '#FCA5A5';
+        document.getElementById('saStatus').textContent = '✖ El archivo seleccionado no es un service-account.json válido.';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('fcmTargetType').addEventListener('change', function (ev) {
+    var box = document.getElementById('singleTokenBox');
+    if (ev.target.value === 'token') box.classList.remove('hidden');
+    else box.classList.add('hidden');
+  });
+
+  document.getElementById('btnSendStart').addEventListener('click', function () { dispatchFcm('start_siren'); });
+  document.getElementById('btnSendStop').addEventListener('click', function () { dispatchFcm('stop_siren'); });
+
+  document.getElementById('btnCopyPs').addEventListener('click', function () {
+    var cmd = 'powershell -ExecutionPolicy Bypass -File .\\disparar.ps1 start_siren';
+    navigator.clipboard.writeText(cmd).then(function () {
+      window.alert('Comando copiado: ' + cmd);
+    });
+  });
+
+  document.getElementById('reportFilters').addEventListener('click', function (ev) {
+    var btn = ev.target;
+    if (!btn || !btn.getAttribute('data-filter')) return;
+    currentFilter = btn.getAttribute('data-filter');
+    document.querySelectorAll('#reportFilters .filter-btn').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    renderReportsTable();
+  });
+
+  document.addEventListener('click', function (ev) {
+    var tok = ev.target && ev.target.getAttribute('data-target-token');
+    if (tok) {
+      document.getElementById('fcmTargetType').value = 'token';
+      document.getElementById('singleTokenBox').classList.remove('hidden');
+      document.getElementById('fcmSingleToken').value = tok;
+      document.getElementById('fcmSingleToken').scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+
+  if (loadSession()) enterDashboard();
+})();
+</script>
+</body>
+</html>
