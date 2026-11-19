@@ -11,9 +11,10 @@
 html,body{margin:0;height:100%}
 body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);font-size:15px;line-height:1.4}
 button,input,select,textarea{font:inherit;color:inherit}
+button svg{pointer-events:none}
 #app{display:flex;flex-direction:column;height:100%}
 header.top{background:var(--red2);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
-header.top b{font-size:17px}header.top small{opacity:.85;display:block;font-size:12px}
+header.top b{font-size:17px}header.top small{opacity:.88;display:block;font-size:12px}
 .back-top{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:10px;padding:6px 11px;font-size:13px;font-weight:700;cursor:pointer;flex:none}
 main{flex:1;overflow-y:auto;padding:14px 14px 90px}
 nav.bot{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom);z-index:20}
@@ -86,12 +87,15 @@ label{font-size:13px;color:var(--mut);font-weight:600}
 :focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 </style></head><body>
 <div id="app"></div><div id="ov"></div><div id="toast"></div>
-<input type="file" id="global-file" accept="image/*,video/*" style="display:none">
+<input type="file" id="global-file" accept="image/*,video/*" style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0">
 <script>
 (function(){
 var B=window.IndrhiBridge,ADMIN_MAIL='ajfeliz@indrhi.gob.do';
 var FS='https://firestore.googleapis.com/v1/projects/indrhi-emergencias/databases/(default)/documents';
 var DEFAULT_APK_URL='https://github.com/angelcruz3102-hub/indrhi-emergencias-v2/releases/latest/download/app-debug.apk';
+
+/* Coordenadas Sede Central INDRHI (Centro de los Héroes, Santo Domingo) y radio de seguridad (1000 m) */
+var INDRHI_HQ={lat:18.4488,lng:-69.9265,radiusMeters:1000};
 
 var BRIG=[
  'Brigada de Evacuación y Rescate',
@@ -131,13 +135,13 @@ var IC={
  user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>',
  cam:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'};
 
-var S={tab:'emg',tabHist:[],filter:'Todos',session:null,posts:[],reports:[],users:[],groups:[],room:null,msgs:[],ver:null,health:null,fcm:'',upd:'',updState:'',sirena:false,globalSiren:null,lastRemoteActive:false,R:{step:0},mode:'login',busy:false,cfg:null,adminQ:'',pollOpts:['',''],grpFilter:'Todos',media:{emerg:null,board:null,chat:null},pickSlot:'emerg',webhook:''};
+var S={tab:'emg',tabHist:[],filter:'Todos',session:null,posts:[],reports:[],users:[],groups:[],room:null,msgs:[],ver:null,health:null,fcm:'',upd:'',updState:'',sirena:false,globalSiren:null,lastRemoteActive:false,R:{step:0},mode:'login',busy:false,cfg:null,adminQ:'',pollOpts:['',''],grpFilter:'Todos',media:{emerg:null,board:null,chat:null},pickSlot:'emerg',webhook:'',geofenceOn:true};
 var $=function(s){return document.querySelector(s)};
 function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function ls(k,v){try{if(v===undefined){return JSON.parse(localStorage.getItem(k))}localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
 function br(n,a){try{if(B&&typeof B[n]==='function'){return B[n].apply(B,a||[])}}catch(e){}return null}
 function brj(n){var r=br(n);try{return typeof r==='string'?JSON.parse(r):r}catch(e){return null}}
-var tt;function toast(m,k){var t=$('#toast');t.textContent=m;t.className='on '+(k||'');clearTimeout(tt);tt=setTimeout(function(){t.className=''},3600)}
+var tt;function toast(m,k){var t=$('#toast');t.textContent=m;t.className='on '+(k||'');clearTimeout(tt);tt=setTimeout(function(){t.className=''},3800)}
 function pushHist(){try{window.history.pushState({indrhi:Date.now()},'')}catch(e){}}
 function closeOv(){clearMedia('emerg');clearMedia('board');$('#ov').innerHTML=''}
 function openModal(h,c){pushHist();$('#ov').innerHTML='<div class="ov" data-act="ovclose"><div class="modal '+(c?'c':'')+'">'+h+'</div></div>'}
@@ -151,40 +155,51 @@ function getDevId(){var id=ls('indrhi.deviceId');if(!id){id='dev-'+Date.now()+'-
 
 function normSub(p){
  if(!p)return'';
- var s=p.subArea||'';
+ var s=String(p.subArea||'').trim();
  if(p.rol==='brigadista')return LEGACY_BRIG[s]||s;
  if(p.rol==='seguridad')return s||'Subalterno de Seguridad';
  return s;
 }
 function userBrigs(p){
  if(!p)return[];
- var out=[];
- if(Array.isArray(p.brigadas)){
-  p.brigadas.forEach(function(b){
-   var nb=LEGACY_BRIG[b]||b;
-   if(nb&&out.indexOf(nb)<0)out.push(nb);
-  });
+ var seen={},out=[];
+ function addB(raw){
+  var nb=LEGACY_BRIG[String(raw||'').trim()]||String(raw||'').trim();
+  if(!nb)return;
+  var key=nb.toLowerCase();
+  if(!seen[key]){seen[key]=true;out.push(nb)}
  }
- var sa=LEGACY_BRIG[p.subArea]||p.subArea||'';
- if(BRIG.indexOf(sa)>=0&&out.indexOf(sa)<0)out.unshift(sa);
+ if(Array.isArray(p.brigadas)){
+  p.brigadas.forEach(addB);
+ }
+ var sa=LEGACY_BRIG[String(p.subArea||'').trim()]||String(p.subArea||'').trim();
+ if(BRIG.indexOf(sa)>=0)addB(sa);
  return out;
 }
 
-/* ---------- Permisos ---------- */
+/* ---------- Permisos e Inmutabilidad de Admin Tecnología ---------- */
 function me(){return S.session&&S.session.profile||{}}
 function rol(){return me().rol||'colaborador'}
+function isProtectedTechUser(u){
+ if(!u)return false;
+ var em=String(u.email||u.id||'').toLowerCase();
+ return em===ADMIN_MAIL||(u.rol==='admin'&&u.subArea==='Tecnología');
+}
+function isTechAdmin(){
+ var p=me();
+ return String(p.email||'').toLowerCase()===ADMIN_MAIL||(p.rol==='admin'&&p.subArea==='Tecnología');
+}
 function isAdm(){
  var p=me();
- return p.email===ADMIN_MAIL||(p.rol==='admin'&&ADM_AREAS.indexOf(p.subArea)>=0);
+ return isTechAdmin()||(p.rol==='admin'&&ADM_AREAS.indexOf(p.subArea)>=0);
 }
-/* Solo Recursos Humanos (y admin principal) puede publicar en el Tablón */
 function canPublishBoard(){
  var p=me();
- return p.email===ADMIN_MAIL||(p.rol==='admin'&&p.subArea==='Recursos Humanos');
+ return isTechAdmin()||(p.rol==='admin'&&p.subArea==='Recursos Humanos');
 }
 function canSiren(){
  var p=me(),sub=normSub(p);
- if(p.email===ADMIN_MAIL)return true;
+ if(isTechAdmin())return true;
  if(p.rol==='seguridad'&&sub==='Jefe de Seguridad')return true;
  if(p.rol==='admin'&&ADM_AREAS.indexOf(sub)>=0)return true;
  return false;
@@ -205,10 +220,15 @@ function roleLabel(p){
  if(p.rol==='brigadista')return'Brigadista';
  return'Colaborador';
 }
+/* Corregido: sin duplicación de brigadas en el encabezado */
 function tag(p){
  var rl=roleLabel(p),brs=userBrigs(p);
- if(p.rol==='brigadista')return brs.length?brs.join(' · '):'Brigadista';
- if(brs.length)return rl+' · '+brs.join(' · ');
+ if(p.rol==='brigadista'){
+  return brs.length?brs.join(' · '):'Brigadista';
+ }
+ if(brs.length){
+  return rl+' · '+brs.join(' · ');
+ }
  return rl;
 }
 function badgesHtml(p){
@@ -216,6 +236,39 @@ function badgesHtml(p){
  var h='<span class="badge b">'+esc(roleLabel(p))+'</span>';
  brs.forEach(function(b){h+='<span class="badge g">'+esc(b)+'</span>'});
  return h;
+}
+
+/* ---------- Verificación GPS de 1 km (Anti-broma / Anti-activación accidental) ---------- */
+function haversineMeters(lat1,lon1,lat2,lon2){
+ var R=6371000,toRad=function(d){return d*Math.PI/180};
+ var dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1);
+ var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+ return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function getGpsCoords(){
+ return new Promise(function(resolve,reject){
+  if(!navigator.geolocation){reject(new Error('GPS no disponible en este dispositivo'));return}
+  navigator.geolocation.getCurrentPosition(
+   function(pos){resolve({lat:pos.coords.latitude,lng:pos.coords.longitude,acc:pos.coords.accuracy})},
+   function(){reject(new Error('Activa la ubicación (GPS) del teléfono para verificar que estás en el INDRHI.'))},
+   {enableHighAccuracy:true,timeout:9000,maximumAge:30000}
+  );
+ });
+}
+function verifyWithin1Km(enforce){
+ if(!enforce||!S.geofenceOn||isTechAdmin()){
+  return getGpsCoords().then(function(c){
+   return{ok:true,lat:c.lat,lng:c.lng,dist:Math.round(haversineMeters(c.lat,c.lng,INDRHI_HQ.lat,INDRHI_HQ.lng))};
+  }).catch(function(){return{ok:true}});
+ }
+ toast('Verificando ubicación dentro de 1 km del INDRHI...');
+ return getGpsCoords().then(function(c){
+  var dist=Math.round(haversineMeters(c.lat,c.lng,INDRHI_HQ.lat,INDRHI_HQ.lng));
+  if(dist>INDRHI_HQ.radiusMeters){
+   throw new Error('Bloqueado por seguridad: estás a '+(dist/1000).toFixed(2)+' km de la sede INDRHI (máximo permitido: 1.00 km).');
+  }
+  return{ok:true,lat:c.lat,lng:c.lng,dist:dist};
+ });
 }
 
 /* ---------- Enrutamiento de Alertas e Incidentes ---------- */
@@ -228,13 +281,13 @@ function classifyIncident(o){
 }
 function recipientMatchesCategory(u,cat){
  if(cat==='estructural'){
-  return u.email===ADMIN_MAIL||(u.rol==='admin'&&ADM_AREAS.indexOf(u.subArea)>=0)||isJefeSeg(u);
+  return isProtectedTechUser(u)||(u.rol==='admin'&&ADM_AREAS.indexOf(u.subArea)>=0)||isJefeSeg(u);
  }
  if(cat==='una'){
-  return isDispensario(u)||isRRHH(u)||isJefeSeg(u)||u.email===ADMIN_MAIL;
+  return isDispensario(u)||isRRHH(u)||isJefeSeg(u)||isProtectedTechUser(u);
  }
  if(cat==='varias'){
-  return isDispensario(u)||isRRHH(u)||u.rol==='seguridad'||u.email===ADMIN_MAIL;
+  return isDispensario(u)||isRRHH(u)||u.rol==='seguridad'||isProtectedTechUser(u);
  }
  return false;
 }
@@ -276,8 +329,10 @@ function dispatchIncidentNotification(r){
    :cat==='varias'
    ?'[EMERGENCIA VARIAS PERSONAS] '+(r.tipo||'Incidente')+' en '+(r.lugar||'INDRHI')
    :'[EMERGENCIA 1 PERSONA] '+(r.tipo||'Incidente')+' en '+(r.lugar||'INDRHI');
+  var gpsTxt=(typeof r.distanciaMetros==='number')?('Distancia a sede INDRHI: <b>'+r.distanciaMetros+' m</b><br>'):'';
   var detalle='Reportado por: '+(r.nombre||r.correo)+' ('+(r.subArea||r.rol)+')<br>'
    +'Ubicación reportada: <b>'+(r.lugar||'No especificada')+'</b><br>'
+   +gpsTxt
    +'Estado: <b>'+(r.estado||'Requiere atención')+'</b><br>'
    +'Acción requerida: '+(cat==='estructural'?'Evaluar evacuación del edificio o de toda la institución.':cat==='varias'?'Coordinar Dispensario Médico, RRHH y Seguridad (evaluar evacuación y llamada al 911).':'Asistencia de Dispensario Médico, RRHH y Jefatura de Seguridad.');
   fetch(wh,{
@@ -298,22 +353,26 @@ function dispatchIncidentNotification(r){
  });
 }
 
-/* ---------- Sirena Global (Todos los teléfonos) ---------- */
+/* ---------- Sirena Global ---------- */
 function triggerSirenGlobal(scope){
- var aid='alm_'+Date.now();
- ls('indrhi.ackSirenId',aid);
- br('testAlarm');
- S.sirena=true;
- var payload={activa:true,alertaId:aid,destino:scope,activadaPor:me().nombre||'',rol:tag(me()),actualizadoIso:new Date().toISOString()};
- S.globalSiren=payload;
- S.lastRemoteActive=true;
- render();
- var scopeTxt=scope==='indrhi_ed1'?'el Edificio ED1':scope==='indrhi_ed2'?'el Edificio ED2':'TODOS los edificios';
- fsSet('config/sirena',payload).then(function(){
-  toast('Sirena general activada en '+scopeTxt,'ok');
-  broadcastSirenPush(aid,scope);
- }).catch(function(x){
-  toast('Sirena local activada, error al sincronizar: '+x.message,'err');
+ verifyWithin1Km(true).then(function(){
+  var aid='alm_'+Date.now();
+  ls('indrhi.ackSirenId',aid);
+  br('testAlarm');
+  S.sirena=true;
+  var payload={activa:true,alertaId:aid,destino:scope,activadaPor:me().nombre||'',rol:tag(me()),actualizadoIso:new Date().toISOString()};
+  S.globalSiren=payload;
+  S.lastRemoteActive=true;
+  render();
+  var scopeTxt=scope==='indrhi_ed1'?'el Edificio ED1':scope==='indrhi_ed2'?'el Edificio ED2':'TODOS los edificios';
+  fsSet('config/sirena',payload).then(function(){
+   toast('Sirena general activada en '+scopeTxt,'ok');
+   broadcastSirenPush(aid,scope);
+  }).catch(function(x){
+   toast('Sirena local activada, error al sincronizar: '+x.message,'err');
+  });
+ }).catch(function(err){
+  toast(err.message,'err');
  });
 }
 function sirenAppliesToMe(gs){
@@ -387,7 +446,7 @@ function mediaPickerHtml(slot,label){
  if(m&&m.file){
   prev='<div class="m-prev">'+(m.type==='video'?'<video src="'+esc(m.previewUrl)+'" controls playsinline></video>':'<img src="'+esc(m.previewUrl)+'" alt="Vista previa">')+'<button type="button" class="m-del" data-act="clrmedia" data-a="'+slot+'">✕</button></div><div class="mut" style="margin-top:4px">'+esc(m.name)+'</div>';
  }
- return'<div class="m-box"><button type="button" class="btn gray sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px" data-act="pickmedia" data-a="'+slot+'">'+IC.cam+'<span>'+(m&&m.file?'Cambiar foto o video':(label||'Subir foto o video'))+'</span></button><div id="mp-'+slot+'">'+prev+'</div><input id="ml-'+slot+'" type="url" placeholder="O pega un enlace en línea (Drive, YouTube, etc.)" style="margin:8px 0 0;font-size:13px;padding:9px 11px" value="'+esc((m&&m.extUrl)||'')+'"></div>';
+ return'<div class="m-box"><button type="button" class="btn gray sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px" data-act="pickmedia" data-a="'+slot+'">'+IC.cam+'<span>'+(m&&m.file?'Cambiar foto o video':(label||'Subir o tomar foto / video'))+'</span></button><div id="mp-'+slot+'">'+prev+'</div><input id="ml-'+slot+'" type="url" placeholder="O pega un enlace en línea (Drive, YouTube, etc.)" style="margin:8px 0 0;font-size:13px;padding:9px 11px" value="'+esc((m&&m.extUrl)||'')+'"></div>';
 }
 function refreshMediaSlotUI(slot){
  if(slot==='chat'){render();return}
@@ -436,7 +495,7 @@ function blobToBase64(blob){
 }
 function getWebhookUrl(){
  if(S.webhook)return Promise.resolve(S.webhook);
- return fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||'';return S.webhook}).catch(function(){return''});
+ return fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||'';if(typeof c.geofence1Km==='boolean')S.geofenceOn=c.geofence1Km;return S.webhook}).catch(function(){return''});
 }
 function uploadMedia(slot,folder){
  var linkEl=$('#ml-'+slot);
@@ -474,9 +533,15 @@ function uploadMedia(slot,folder){
  });
 }
 
+function triggerFilePicker(slot){
+ S.pickSlot=slot||'emerg';
+ var inp=$('#global-file');
+ if(!inp)return;
+ inp.value='';
+ inp.click();
+}
 $('#global-file').addEventListener('change',function(e){
  var f=e.target.files&&e.target.files[0];
- e.target.value='';
  if(!f)return;
  if(f.size>18*1024*1024){toast('El archivo supera 18 MB. Usa un clip más corto o pega el enlace.','err');return}
  var slot=S.pickSlot||'emerg';
@@ -530,6 +595,7 @@ function fsList(col,qs){return http('GET',FS+'/'+col+(qs?'?'+qs:''),null,true).t
 function fsGet(p){return http('GET',FS+'/'+p,null,true).then(doc)}
 function fsAdd(col,o,id){return http('POST',FS+'/'+col+(id?'?documentId='+encodeURIComponent(id):''),{fields:toFields(o)},true)}
 function fsSet(p,o,mask){var q=mask?'?'+mask.map(function(m){return'updateMask.fieldPaths='+encodeURIComponent(m)}).join('&'):'';return http('PATCH',FS+'/'+p+q,{fields:toFields(o)},true)}
+function fsDel(p){return http('DELETE',FS+'/'+p,null,true)}
 
 /* ---------- Sesión ---------- */
 function saveSession(){var s=S.session;if(!s)return;var p=s.profile||{};var j=JSON.stringify({email:s.email,uid:s.uid,idToken:s.idToken,refreshToken:s.refreshToken,expiresAt:s.expiresAt,nombre:p.nombre||'',edificio:p.ubicacion||'',rol:p.rol||'colaborador',subArea:p.subArea||'',brigadas:userBrigs(p),profile:p});try{localStorage.setItem('indrhi.authSession',j)}catch(e){}br('saveAuthSession',[j])}
@@ -554,7 +620,7 @@ function doLogin(){
   pr.ubicacion=pr.ubicacion||pr.edificio||UBIC[0];
   pr.brigadas=userBrigs(pr);
   S.session.profile=pr;
-  if(e===ADMIN_MAIL&&pr.rol!=='admin'){pr.rol='admin';pr.subArea=pr.subArea||'Tecnología';fsSet('usuarios/'+encodeURIComponent(e),pr,['rol','subArea'])}
+  if(e===ADMIN_MAIL&&(pr.rol!=='admin'||pr.subArea!=='Tecnología')){pr.rol='admin';pr.subArea='Tecnología';fsSet('usuarios/'+encodeURIComponent(e),pr,['rol','subArea'])}
   saveSession();start()
  }).catch(function(x){toast(authErr(x.message),'err')}).then(function(){S.busy=false})}
 function doReg(){
@@ -569,7 +635,7 @@ function doReg(){
 
  var allowedRol=(r==='brigadista'||r==='seguridad')?r:'colaborador';
  var subArea='';
- if(allowedRol==='brigadista')subArea=brigs[0]||'';
+ if(allowedRol==='brigadista')subArea='';
  else if(allowedRol==='seguridad')subArea='Subalterno de Seguridad';
  else brigs=[];
 
@@ -599,7 +665,7 @@ function refreshReports(){
 function loadAll(){
  fsGet('usuarios/'+encodeURIComponent(S.session.email)).then(function(p){if(p&&p.email&&S.session){p.ubicacion=p.ubicacion||p.edificio||UBIC[0];p.brigadas=userBrigs(p);S.session.profile=Object.assign({},S.session.profile,p);saveSession();syncDevice();render()}}).catch(function(){});
  fsGet('config/version').then(function(v){S.ver=v;render()}).catch(function(){});
- fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||''}).catch(function(){});
+ fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||'';if(typeof c.geofence1Km==='boolean')S.geofenceOn=c.geofence1Km}).catch(function(){});
  fsList('comunicados','orderBy=creado%20desc&pageSize=60').then(function(a){S.posts=a;if(S.tab==='board')render()}).catch(function(){});
  refreshReports();
  fsList('usuarios','pageSize=300').then(function(a){S.users=a;if(S.tab==='me'||S.tab==='chat')render()}).catch(function(){});
@@ -615,22 +681,28 @@ function syncQ(){var q=queue();q.filter(function(r){return!r.synced}).forEach(fu
  var o={};for(var k in r)if(k!=='synced'&&k!=='id')o[k]=r[k];
  fsAdd('reportes',o,r.id).then(function(){r.synced=true;ls('indrhi.reportes',q);refreshReports();if(S.tab==='emg')render()}).catch(function(){})})}
 function sendReport(o){
- uploadMedia('emerg','Reportes').then(function(m){
-  if(m){o.mediaUrl=m.url;o.mediaViewUrl=m.viewUrl;o.mediaType=m.type;o.mediaName=m.name}
-  var cx=brj('getContext')||{},mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android',now=new Date().toISOString();
-  o.categoria=classifyIncident(o);
-  o.atendido=false;
-  o.id='r'+Date.now();o.uid=S.session.uid;o.email=S.session.email;o.correo=S.session.email;o.nombre=me().nombre||'';o.rol=rol();o.subArea=tag(me());o.ubicacion=me().ubicacion||'';o.edificioAsignado=me().ubicacion||'';o.fcmToken=S.fcm||'';o.deviceId=getDevId();o.dispositivo=mod;o.creado=now;o.fechaIso=now;o.synced=false;
-  var q=queue();q.unshift(o);ls('indrhi.reportes',q.slice(0,50));render();syncQ();
-  dispatchIncidentNotification(o);
-  var msgOk=o.categoria==='estructural'?'Alerta enviada a Administración para evaluar evacuación'
-   :o.categoria==='varias'?'Alerta enviada a Dispensario Médico, RRHH y Seguridad'
-   :o.categoria==='una'?'Reporte enviado a Dispensario Médico, RRHH y Jefe de Seguridad'
-   :'Estado registrado';
-  toast(msgOk,'ok');
+ var isHqReport=(o.lugar==='Edificio ED1'||o.lugar==='Edificio ED2');
+ var cat=classifyIncident(o);
+ var enforce1Km=isHqReport&&(cat==='estructural'||cat==='varias'||cat==='una');
+ verifyWithin1Km(enforce1Km).then(function(gps){
+  return uploadMedia('emerg','Reportes').then(function(m){
+   if(m){o.mediaUrl=m.url;o.mediaViewUrl=m.viewUrl;o.mediaType=m.type;o.mediaName=m.name}
+   var cx=brj('getContext')||{},mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android',now=new Date().toISOString();
+   o.categoria=cat;
+   o.atendido=false;
+   if(typeof gps.dist==='number')o.distanciaMetros=gps.dist;
+   o.id='r'+Date.now();o.uid=S.session.uid;o.email=S.session.email;o.correo=S.session.email;o.nombre=me().nombre||'';o.rol=rol();o.subArea=tag(me());o.ubicacion=me().ubicacion||'';o.edificioAsignado=me().ubicacion||'';o.fcmToken=S.fcm||'';o.deviceId=getDevId();o.dispositivo=mod;o.creado=now;o.fechaIso=now;o.synced=false;
+   var q=queue();q.unshift(o);ls('indrhi.reportes',q.slice(0,50));render();syncQ();
+   dispatchIncidentNotification(o);
+   var msgOk=o.categoria==='estructural'?'Alerta enviada a Administración para evaluar evacuación'
+    :o.categoria==='varias'?'Alerta enviada a Dispensario Médico, RRHH y Seguridad'
+    :o.categoria==='una'?'Reporte enviado a Dispensario Médico, RRHH y Jefe de Seguridad'
+    :'Estado registrado';
+   toast(msgOk,'ok');
+  });
  }).catch(function(err){
   clearMedia('emerg');
-  toast(err.message||'No se pudo guardar el archivo','err');
+  toast(err.message||'No se pudo enviar el reporte','err');
  });
 }
 function allEmergReports(){
@@ -664,7 +736,7 @@ function renderIncomingAlerts(){
  var h='<div class="sec-lbl" style="color:var(--red)">Alertas e incidentes activos para tu área ('+list.length+')</div>';
  list.forEach(function(r){
   var cat=r.categoria||classifyIncident(r);
-  var badgeTxt=cat==='estructural'?'Incidente Estructural · Decisión de Evacuación':cat==='varias'?'Emergencia · Varias Personas': 'Emergencia · 1 Persona';
+  var badgeTxt=cat==='estructural'?'Incidente Estructural · Decisión de Evacuación':cat==='varias'?'Emergencia · Varias Personas':'Emergencia · 1 Persona';
   var fTxt=r.creado?new Date(r.creado).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'}):'';
   var scopeEd=String(r.lugar||'').indexOf('ED2')>=0?'indrhi_ed2':'indrhi_ed1';
   var labelEd=scopeEd==='indrhi_ed2'?'Evacuar ED2':'Evacuar ED1';
@@ -813,7 +885,7 @@ function chatView(){
  }
  var cm=S.media.chat;
  var prevBar=(cm&&cm.file)?'<div class="chat-prev">'+(cm.type==='image'?'<img src="'+esc(cm.previewUrl)+'" alt="">':'<span class="badge b">VIDEO</span>')+'<div style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(cm.name)+'</div><button type="button" class="btn gray sm" data-act="clrmedia" data-a="chat">✕</button></div>':'';
- return'<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn gray sm" data-act="rooms">← Salas</button><b>'+esc(S.room.nombre)+'</b></div><div class="msgs" id="msgs">'+msgsHtml()+'</div>'+prevBar+'<div class="row" style="margin-top:8px;align-items:center"><button type="button" class="btn gray sm" style="flex:none;min-height:44px;padding:0 12px" data-act="pickmedia" data-a="chat" aria-label="Subir foto o video">'+IC.cam+'</button><input id="cm" placeholder="Escribe un mensaje o pega enlace" style="margin:0;flex:4"><button class="btn sm" style="flex:1;min-height:44px" data-act="send">Enviar</button></div>'}
+ return'<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn gray sm" data-act="rooms">← Salas</button><b>'+esc(S.room.nombre)+'</b></div><div class="msgs" id="msgs">'+msgsHtml()+'</div>'+prevBar+'<div class="row" style="margin-top:8px;align-items:center"><button type="button" class="btn gray sm" style="flex:none;min-height:44px;padding:0 12px" data-act="pickmedia" data-a="chat" aria-label="Subir o tomar foto/video">'+IC.cam+'</button><input id="cm" placeholder="Escribe un mensaje o pega enlace" style="margin:0;flex:4"><button class="btn sm" style="flex:1;min-height:44px" data-act="send">Enviar</button></div>'}
 
 function msgsHtml(){return S.msgs.length?S.msgs.map(function(m){var own=m.email===S.session.email;return'<div class="msg '+(own?'me':'')+'"><small><b>'+esc(own?'Tú':m.nombre)+'</b> '+esc(m.etiqueta||'')+'</small>'+renderMedia(m.mediaUrl,m.mediaType,true,m.mediaViewUrl)+(m.texto?'<div>'+esc(m.texto)+'</div>':'')+'<small>'+(m.creado?new Date(m.creado).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'}):'')+'</small></div>'}).join(''):'<p class="mut">Aún no hay mensajes. Escribe el primero o envía una foto/video.</p>'}
 function loadMsgs(){if(!S.room)return;var id=S.room.id;fsList('chat_grupos/'+id+'/mensajes','orderBy=creado%20desc&pageSize=60').then(function(a){if(!S.room||S.room.id!==id)return;var n=a.reverse(),ch=JSON.stringify(n)!==JSON.stringify(S.msgs);S.msgs=n;var b=$('#msgs');if(b&&ch){var bot=b.scrollTop+b.clientHeight>=b.scrollHeight-40;b.innerHTML=msgsHtml();if(bot)b.scrollTop=b.scrollHeight}}).catch(function(){})}
@@ -831,6 +903,7 @@ function meView(){
 function currentComboVal(u){
  var sa=normSub(u);
  if(u.rol==='admin'){
+  if(sa==='Tecnología')return'admin|Tecnología';
   if(ADM_AREAS.indexOf(sa)>=0)return'admin|'+sa;
   return'admin|Administración';
  }
@@ -843,32 +916,54 @@ function currentComboVal(u){
 
 function adminView(){
  var q=S.adminQ.toLowerCase(),us=S.users.filter(function(u){return!q||((u.nombre||'')+(u.email||'')+(u.subArea||'')+userBrigs(u).join(' ')).toLowerCase().indexOf(q)>=0}),cx=brj('getContext')||{},nextC=Number(cx.versionCode||2)+1;
+ var tech=isTechAdmin();
+ /* Nadie puede asignar Jefe / Admin Tecnología desde la lista; solo existe el titular de Tecnología */
  var roleChoices=[
   ['colaborador|','Colaborador General'],
   ['brigadista|','Brigadista'],
   ['seguridad|Subalterno de Seguridad','Seguridad · Subalterno'],
-  ['seguridad|Jefe de Seguridad','Jefe de Seguridad (Exclusivo Admin)'],
+  ['seguridad|Jefe de Seguridad','Jefe de Seguridad'],
   ['admin|Administración','Jefe / Admin · Administración'],
-  ['admin|Tecnología','Jefe / Admin · Tecnología'],
   ['admin|Recursos Humanos','Jefe / Admin · Recursos Humanos']
  ];
- var h='<div class="card"><h2>Administración de usuarios y roles</h2><p class="mut" style="margin-top:-4px">Solo aquí puedes otorgar jefaturas y asignar una o varias brigadas por persona.</p><input id="aq" placeholder="Buscar por nombre, correo o brigada" value="'+esc(S.adminQ)+'" oninput="window._onAq(this.value)">';
+ var h='<div class="card"><h2>Administración de usuarios y roles</h2><p class="mut" style="margin-top:-4px">Gestiona cargos y brigadas del personal.</p><input id="aq" placeholder="Buscar por nombre, correo o brigada" value="'+esc(S.adminQ)+'" oninput="window._onAq(this.value)">';
  us.forEach(function(u){
-  var uidSafe=esc(u.id),curVal=currentComboVal(u),uBrs=userBrigs(u);
-  var selHtml='<select data-combo-for="'+uidSafe+'">'+roleChoices.map(function(rc){
-   return'<option value="'+esc(rc[0])+'"'+(rc[0]===curVal?' selected':'')+'>'+esc(rc[1])+'</option>';
-  }).join('')+'</select>';
+  var uidSafe=esc(u.id),curVal=currentComboVal(u),uBrs=userBrigs(u),lockedTech=isProtectedTechUser(u);
+  var selHtml='<select data-combo-for="'+uidSafe+'"'+(lockedTech?' disabled':'')+'>';
+  if(lockedTech){
+   selHtml+='<option value="admin|Tecnología" selected>Jefe / Admin · Tecnología (Protegido)</option>';
+  }else{
+   selHtml+=roleChoices.map(function(rc){
+    return'<option value="'+esc(rc[0])+'"'+(rc[0]===curVal?' selected':'')+'>'+esc(rc[1])+'</option>';
+   }).join('');
+  }
+  selHtml+='</select>';
+
   var brigChecks='<div class="chk-list">'+BRIG.map(function(b){
    var chk=uBrs.indexOf(b)>=0?' checked':'';
    return'<label class="chk-item"><input type="checkbox" class="adm-brig" data-brig-for="'+uidSafe+'" value="'+esc(b)+'"'+chk+'><span>'+esc(b)+'</span></label>';
   }).join('')+'</div>';
+
   h+='<div class="card" style="box-shadow:none;border:1px solid var(--bd)"><b>'+esc(u.nombre)+'</b><div class="mut">'+esc(u.email)+'</div><div class="wrap" style="margin:6px 0">'+badgesHtml(u)+'</div>'+
   '<label>Cargo / Rol principal</label>'+selHtml+
   '<label>Brigadas asignadas (puedes marcar una o varias)</label>'+brigChecks+
-  '<button class="btn sm" data-act="saverole" data-a="'+uidSafe+'">Guardar rol y brigadas</button></div>';
+  '<div class="wrap"><button class="btn sm" data-act="saverole" data-a="'+uidSafe+'">Guardar cambios</button>';
+
+  /* Solo Admin Tecnología puede cambiar contraseña o eliminar perfiles (y nunca el de Tecnología) */
+  if(tech&&!lockedTech){
+   h+='<button class="btn amber sm" data-act="chgpass" data-a="'+uidSafe+'">Cambiar contraseña</button>';
+   h+='<button class="btn red sm" data-act="deluser" data-a="'+uidSafe+'">Eliminar perfil</button>';
+  }
+  h+='</div></div>';
  });
- h+='</div><div class="card"><h2>Google Drive y Correos (Apps Script)</h2><label>URL del webhook (Google Apps Script)</label><input id="wh" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.webhook||'')+'"><button class="btn" data-act="savewh">Guardar URL</button></div>';
- h+='<div class="card"><h2>Publicar actualización (OTA)</h2><label>Código de versión</label><input id="v-code" type="number" value="'+nextC+'"><label>Nombre de versión</label><input id="v-name" placeholder="Ej. 1.3.0"><label>URL del APK</label><input id="v-url" type="url" value="'+DEFAULT_APK_URL+'"><label>Notas</label><textarea id="v-notes" rows="3"></textarea><button class="btn amber" data-act="pubver">Publicar versión</button></div>';
+ h+='</div>';
+
+ /* Exclusivo para Jefe / Admin Tecnología */
+ if(tech){
+  h+='<div class="card"><h2>Seguridad Geocerca (Radio 1 km)</h2><p class="mut">Bloquea la activación de sirena y alertas de sede si el teléfono está a más de 1 km del INDRHI.</p><label class="chk-item" style="border:1px solid var(--bd);border-radius:12px;padding:10px;margin-bottom:10px"><input type="checkbox" id="geo-chk"'+(S.geofenceOn?' checked':'')+'><span>Activar verificación obligatoria de 1 km</span></label><button class="btn sm" data-act="savegeo">Guardar seguridad GPS</button></div>';
+  h+='<div class="card"><h2>Google Drive y Correos (Apps Script)</h2><label>URL del webhook (Google Apps Script)</label><input id="wh" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.webhook||'')+'"><button class="btn" data-act="savewh">Guardar URL</button></div>';
+  h+='<div class="card"><h2>Publicar actualización (OTA)</h2><label>Código de versión</label><input id="v-code" type="number" value="'+nextC+'"><label>Nombre de versión</label><input id="v-name" placeholder="Ej. 1.3.0"><label>URL del APK</label><input id="v-url" type="url" value="'+DEFAULT_APK_URL+'"><label>Notas</label><textarea id="v-notes" rows="3"></textarea><button class="btn amber" data-act="pubver">Publicar versión</button></div>';
+ }
  return h}
 window._onAq=function(val){S.adminQ=val;render()};
 
@@ -910,7 +1005,7 @@ var A={
  filter:function(a){S.filter=a;render()},
  cancel:closeOv,ovclose:function(a,el,e){if(e.target===el)closeOv()},
  okc:function(){var f=S._ok;if(f)f();$('#ov').innerHTML=''},
- pickmedia:function(a){S.pickSlot=a||'emerg';var inp=$('#global-file');if(inp){inp.value='';inp.click()}},
+ pickmedia:function(a){triggerFilePicker(a||'emerg')},
  clrmedia:function(a){clearMedia(a);refreshMediaSlotUI(a)},
  viewimg:function(a,el){var v=el.getAttribute('data-v')||a;openModal('<img src="'+esc(a)+'" style="width:100%;border-radius:12px;display:block"><div class="row" style="margin-top:12px"><a class="btn" style="text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center" href="'+esc(v)+'" target="_blank" rel="noopener">Ver / Guardar en Drive</a><button class="btn gray" data-act="cancel">Cerrar</button></div>',true)},
  siren:function(){
@@ -1003,7 +1098,7 @@ var A={
   var defTipo=TIPOS.indexOf(S.filter)>=0?S.filter:'Información';
   S.pollOpts=['',''];
   clearMedia('board');
-  openModal('<h2>Publicar novedad en Tablón</h2><label>Tipo</label><select id="p-tipo" data-chg="ptipo">'+TIPOS.map(function(t){return'<option'+(t===defTipo?' selected':'')+'>'+t+'</option>'}).join('')+'</select><label>Título o pregunta</label><input id="p-tit" placeholder="Escribe el título"><label>Descripción</label><textarea id="p-des" rows="2" placeholder="Detalles adicionales"></textarea>'+mediaPickerHtml('board','Subir foto o video (opcional)')+'<div id="p-ex"></div><label>Público destino</label><select id="p-dest">'+DEST.map(function(t){return'<option>'+t+'</option>'}).join('')+'</select><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn" data-act="publish">Publicar</button></div>');
+  openModal('<h2>Publicar novedad en Tablón</h2><label>Tipo</label><select id="p-tipo" data-chg="ptipo">'+TIPOS.map(function(t){return'<option'+(t===defTipo?' selected':'')+'>'+t+'</option>'}).join('')+'</select><label>Título o pregunta</label><input id="p-tit" placeholder="Escribe el título"><label>Descripción</label><textarea id="p-des" rows="2" placeholder="Detalles adicionales"></textarea>'+mediaPickerHtml('board','Subir o tomar foto / video (opcional)')+'<div id="p-ex"></div><label>Público destino</label><select id="p-dest">'+DEST.map(function(t){return'<option>'+t+'</option>'}).join('')+'</select><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn" data-act="publish">Publicar</button></div>');
   ptipo();
  },
  addopt:function(){syncPollInputs();S.pollOpts.push('');renderPollBuilder()},
@@ -1061,18 +1156,83 @@ var A={
   var id='g'+Date.now();fsAdd('chat_grupos',{nombre:n,miembros:m,creador:S.session.email,creado:new Date().toISOString()},id).then(function(){closeOv();toast('Grupo creado','ok');return fsList('chat_grupos','pageSize=100')}).then(function(a){S.groups=a;render()}).catch(function(x){toast('No se pudo crear: '+x.message,'err')})},
  bridge:function(a){br(a)},health:function(){S.health=brj('getHealth');render()},
  saverole:function(a){
+  var uObj=S.users.filter(function(x){return x.id===a})[0];
+  var brs=[].slice.call(document.querySelectorAll('.adm-brig[data-brig-for="'+a+'"]:checked')).map(function(cb){return cb.value});
+  if(uObj&&isProtectedTechUser(uObj)){
+   confirmM('¿Actualizar brigadas de Tecnología?',brs.length?brs.join(', '):'Sin brigadas adicionales',function(){saveRole(a,'admin','Tecnología',brs)},'blue');
+   return;
+  }
   var cEl=document.querySelector('[data-combo-for="'+a+'"]');
   if(!cEl)return;
   var parts=cEl.value.split('|'),r=parts[0],s=parts[1]||'';
-  var brs=[].slice.call(document.querySelectorAll('.adm-brig[data-brig-for="'+a+'"]:checked')).map(function(cb){return cb.value});
+  if(s==='Tecnología')return toast('El rol Admin Tecnología es exclusivo e intransferible','err');
   if(r==='brigadista'&&!brs.length)return toast('Marca al menos una brigada para el rol Brigadista','err');
-  if(r==='brigadista')s=brs[0]||'';
+  if(r==='brigadista')s='';
   var desc=roleLabel({rol:r,subArea:s})+(brs.length?' · '+brs.join(', '):'');
   confirmM('¿Guardar cambios de rol?',desc,function(){saveRole(a,r,s,brs)},'blue');
  },
- savewh:function(){var u=$('#wh').value.trim();fsSet('config/notificaciones',{webhookUrl:u},['webhookUrl']).then(function(){S.webhook=u;toast('URL guardada','ok')}).catch(function(x){toast('No se pudo guardar: '+x.message,'err')})},
- pubver:function(){var c=Number($('#v-code').value),n=$('#v-name').value.trim(),u=$('#v-url').value.trim();if(!c||!n||!u)return toast('Completa código, nombre y URL','err');
-  confirmM('¿Publicar la versión '+n+'?','Todos los teléfonos verán el aviso de actualización.',function(){fsSet('config/version',{latestVersionCode:c,latestVersionName:n,apkUrl:u,releaseNotes:$('#v-notes').value.trim(),actualizadoIso:new Date().toISOString()}).then(function(){toast('Versión publicada','ok');loadAll()}).catch(function(x){toast('No se pudo publicar: '+x.message,'err')})},'amber')}
+ chgpass:function(a){
+  if(!isTechAdmin())return toast('Solo Jefe / Admin Tecnología puede cambiar contraseñas','err');
+  var u=S.users.filter(function(x){return x.id===a})[0];
+  if(!u||isProtectedTechUser(u))return toast('Este perfil está protegido','err');
+  openModal('<h2>Cambiar contraseña</h2><p class="mut">Usuario: <b>'+esc(u.nombre)+'</b> ('+esc(u.email)+')</p><label>Nueva contraseña (mínimo 6 caracteres)</label><input id="new-pass-inp" type="password" placeholder="Nueva contraseña"><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn amber" data-act="dochgpass" data-a="'+esc(a)+'">Guardar contraseña</button></div>');
+ },
+ dochgpass:function(a){
+  if(!isTechAdmin())return;
+  var u=S.users.filter(function(x){return x.id===a})[0];
+  var pw=$('#new-pass-inp')?$('#new-pass-inp').value:'';
+  if(!u||!u.uid)return toast('Usuario sin UID de autenticación','err');
+  if(pw.length<6)return toast('Mínimo 6 caracteres','err');
+  getWebhookUrl().then(function(wh){
+   if(!wh)throw new Error('Configura primero la URL de Google Apps Script');
+   toast('Actualizando contraseña...');
+   return fetch(wh,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action:'changePassword',secret:'INDRHI_ALERTA_2026',requester:S.session.email,targetUid:u.uid,targetEmail:u.email,newPassword:pw})
+   });
+  }).then(function(r){return r.json()}).then(function(res){
+   if(!res||!res.ok)throw new Error((res&&res.error)||'No se pudo cambiar la contraseña');
+   closeOv();toast('Contraseña actualizada correctamente','ok');
+  }).catch(function(x){toast(x.message,'err')});
+ },
+ deluser:function(a){
+  if(!isTechAdmin())return toast('Solo Jefe / Admin Tecnología puede eliminar perfiles','err');
+  var u=S.users.filter(function(x){return x.id===a})[0];
+  if(!u||isProtectedTechUser(u))return toast('No se puede eliminar el perfil de Tecnología','err');
+  confirmM('¿Eliminar perfil permanentemente?','Se eliminará a '+u.nombre+' ('+u.email+') del sistema.',function(){
+   fsDel('usuarios/'+encodeURIComponent(a)).then(function(){
+    S.users=S.users.filter(function(x){return x.id!==a});
+    render();
+    toast('Perfil eliminado de Firestore','ok');
+    if(u.uid){
+     getWebhookUrl().then(function(wh){
+      if(!wh)return;
+      fetch(wh,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'deleteUser',secret:'INDRHI_ALERTA_2026',requester:S.session.email,targetUid:u.uid,targetEmail:u.email})}).catch(function(){});
+     });
+    }
+   }).catch(function(x){toast('Error al eliminar: '+x.message,'err')});
+  });
+ },
+ savegeo:function(){
+  if(!isTechAdmin())return;
+  var on=!!($('#geo-chk')&&$('#geo-chk').checked);
+  fsSet('config/notificaciones',{geofence1Km:on},['geofence1Km']).then(function(){
+   S.geofenceOn=on;
+   toast(on?'Verificación de 1 km activada':'Verificación de 1 km desactivada','ok');
+  }).catch(function(x){toast('Error: '+x.message,'err')});
+ },
+ savewh:function(){
+  if(!isTechAdmin())return;
+  var u=$('#wh').value.trim();
+  fsSet('config/notificaciones',{webhookUrl:u},['webhookUrl']).then(function(){S.webhook=u;toast('URL guardada','ok')}).catch(function(x){toast('No se pudo guardar: '+x.message,'err')});
+ },
+ pubver:function(){
+  if(!isTechAdmin())return;
+  var c=Number($('#v-code').value),n=$('#v-name').value.trim(),u=$('#v-url').value.trim();
+  if(!c||!n||!u)return toast('Completa código, nombre y URL','err');
+  confirmM('¿Publicar la versión '+n+'?','Todos los teléfonos verán el aviso de actualización.',function(){fsSet('config/version',{latestVersionCode:c,latestVersionName:n,apkUrl:u,releaseNotes:$('#v-notes').value.trim(),actualizadoIso:new Date().toISOString()}).then(function(){toast('Versión publicada','ok');loadAll()}).catch(function(x){toast('No se pudo publicar: '+x.message,'err')})},'amber');
+ }
 };
 
 function saveRole(id,r,s,brs){
@@ -1084,7 +1244,7 @@ function saveRole(id,r,s,brs){
   render();
  }).catch(function(x){toast('No se pudo guardar: '+x.message,'err')});
 }
-function loadWh(){fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||'';if(S.tab==='me'&&isAdm()&&!document.activeElement.id)render()}).catch(function(){})}
+function loadWh(){fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||'';if(typeof c.geofence1Km==='boolean')S.geofenceOn=c.geofence1Km;if(S.tab==='me'&&isAdm()&&!document.activeElement.id)render()}).catch(function(){})}
 
 function notify(o){getWebhookUrl().then(function(wh){if(!wh)return;
  var d=o.destino,to=S.users.filter(function(u){
