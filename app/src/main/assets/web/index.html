@@ -23,6 +23,7 @@ nav.bot svg{width:24px;height:24px}
 .card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px;margin-bottom:12px}
 h2{font-size:17px;margin:0 0 10px}h3{font-size:15px;margin:0 0 6px}
 .mut{color:var(--mut);font-size:13px}
+.sec-lbl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:14px 0 8px}
 .btn{border:0;border-radius:14px;padding:13px 16px;font-weight:700;background:var(--blue);color:#fff;width:100%;min-height:48px;cursor:pointer}
 .btn.red{background:var(--red)}.btn.green{background:var(--green)}.btn.amber{background:var(--amber)}.btn.gray{background:var(--bd);color:var(--tx)}
 .btn.sm{width:auto;padding:8px 12px;min-height:36px;font-size:13px;border-radius:10px}
@@ -61,7 +62,7 @@ label{font-size:13px;color:var(--mut);font-weight:600}
 .msg small{display:block;font-size:11px;opacity:.75}
 .hl{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)}.hl:last-child{border:0}
 .led{width:14px;height:14px;border-radius:50%;flex:none}.led.g{background:var(--green)}.led.r{background:var(--red)}
-.opt{border:2px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:8px;font-weight:600;cursor:pointer;background:var(--card);width:100%;text-align:left}
+.opt{border:2px solid var(--bd);border-radius:14px;padding:13px 14px;margin-bottom:8px;font-weight:600;cursor:pointer;background:var(--card);width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .pre{word-break:break-all;font-size:12px;background:var(--bg);padding:8px;border-radius:10px;margin:6px 0}
 :focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 </style></head><body>
@@ -71,18 +72,44 @@ label{font-size:13px;color:var(--mut);font-weight:600}
 var B=window.IndrhiBridge,ADMIN_MAIL='ajfeliz@indrhi.gob.do';
 var FS='https://firestore.googleapis.com/v1/projects/indrhi-emergencias/databases/(default)/documents';
 var DEFAULT_APK_URL='https://github.com/angelcruz3102-hub/indrhi-emergencias-v2/releases/latest/download/app-debug.apk';
-var BRIG=['Brigada de Evacuación','Brigada de Primeros Auxilios','Brigada Contra Incendios','Brigada de Búsqueda y Rescate'];
+
+var BRIG=[
+ 'Brigada de Evacuación y Rescate',
+ 'Brigada Contra Incendio y M. Extintores',
+ 'Brigada de Rescate',
+ 'Brigada Médica / Primeros Auxilios',
+ 'Brigada de Comunicación y Apoyo'
+];
+var SEG_NIVEL=[
+ 'Jefe de Seguridad',
+ 'Subalterno de Seguridad'
+];
+var BRIG_ROOMS={
+ 'Brigada de Evacuación y Rescate':{id:'grupo_brig_evacuacion',nombre:'Brigada de Evacuación y Rescate'},
+ 'Brigada Contra Incendio y M. Extintores':{id:'grupo_brig_incendio',nombre:'Brigada Contra Incendio y M. Extintores'},
+ 'Brigada de Rescate':{id:'grupo_brig_rescate',nombre:'Brigada de Rescate'},
+ 'Brigada Médica / Primeros Auxilios':{id:'grupo_brig_medicos',nombre:'Brigada Médica / Primeros Auxilios'},
+ 'Brigada de Comunicación y Apoyo':{id:'grupo_brig_comunicacion',nombre:'Brigada de Comunicación y Apoyo'}
+};
+var LEGACY_BRIG={
+ 'Brigada de Evacuación':'Brigada de Evacuación y Rescate',
+ 'Brigada Contra Incendios':'Brigada Contra Incendio y M. Extintores',
+ 'Brigada de Búsqueda y Rescate':'Brigada de Rescate',
+ 'Brigada de Primeros Auxilios':'Brigada Médica / Primeros Auxilios'
+};
+
 var UBIC=['Edificio ED1','Edificio ED2','Exterior / Regional'];
 var TOPICS={'Edificio ED1':'indrhi_ed1','Edificio ED2':'indrhi_ed2','Exterior / Regional':'indrhi_exterior'};
-var ROOMS=[{id:'grupo_general',nombre:'Chat General INDRHI'},{id:'grupo_brigadistas',nombre:'Brigadistas INDRHI'},{id:'grupo_seguridad',nombre:'Seguridad INDRHI'},{id:'grupo_ed1',nombre:'Edificio ED1'},{id:'grupo_ed2',nombre:'Edificio ED2'}];
 var TIPOS=['Información','Curso','Reunión','Encuesta','Reporte'];
-var DEST=['Todos','Edificio ED1','Edificio ED2','Brigadistas','Seguridad'];
+var DEST=['Todos','Edificio ED1','Edificio ED2','Brigadistas (Todas)'].concat(BRIG).concat(['Seguridad (Todos)','Jefe de Seguridad','Subalternos de Seguridad']);
+
 var IC={
  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18h.01"/></svg>',
  board:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
  chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-12 7l-5 1 1-4a8 8 0 1 1 16-4z"/></svg>',
  user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>'};
-var S={tab:'emg',tabHist:[],filter:'Todos',session:null,posts:[],reports:[],users:[],groups:[],room:null,msgs:[],ver:null,health:null,fcm:'',upd:'',updState:'',sirena:false,R:{step:0},mode:'login',busy:false,cfg:null,adminQ:'',pollOpts:['','']};
+
+var S={tab:'emg',tabHist:[],filter:'Todos',session:null,posts:[],reports:[],users:[],groups:[],room:null,msgs:[],ver:null,health:null,fcm:'',upd:'',updState:'',sirena:false,R:{step:0},mode:'login',busy:false,cfg:null,adminQ:'',pollOpts:['',''],grpFilter:'Todos'};
 var $=function(s){return document.querySelector(s)};
 function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function ls(k,v){try{if(v===undefined){return JSON.parse(localStorage.getItem(k))}localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
@@ -96,16 +123,15 @@ function confirmM(title,text,ok,color){
  S._ok=ok;openModal('<div class="ic">'+IC.alert.replace('<svg','<svg width="28" height="28"')+'</div><h2>'+esc(title)+'</h2><p class="mut">'+esc(text)+'</p><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn '+(color||'red')+'" data-act="okc">Confirmar</button></div>',true)}
 function getDevId(){var id=ls('indrhi.deviceId');if(!id){id='dev-'+Date.now()+'-'+Math.floor(Math.random()*1000000);ls('indrhi.deviceId',id)}return id}
 
-/* ---------- Navegación Atrás ---------- */
-function canGoBack(){
- if(!S.session)return S.mode==='reg';
- var ov=$('#ov');
- if(ov&&ov.innerHTML.trim()!=='')return true;
- if(S.tab==='emg'&&S.R.step>0)return true;
- if(S.tab==='chat'&&S.room)return true;
- if(S.tab!=='emg')return true;
- return false;
+function normSub(p){
+ if(!p)return'';
+ var s=p.subArea||'';
+ if(p.rol==='brigadista')return LEGACY_BRIG[s]||s;
+ if(p.rol==='seguridad')return s||'Subalterno de Seguridad';
+ return s;
 }
+
+/* ---------- Navegación Atrás ---------- */
 function goBackStep(){
  if(!S.session){
   if(S.mode==='reg'){S.mode='login';render();return true}
@@ -164,7 +190,13 @@ function me(){return S.session&&S.session.profile||{}}
 function rol(){return me().rol||'colaborador'}
 function canPub(){return['admin','brigadista','seguridad'].indexOf(rol())>=0}
 function isAdm(){var p=me();return p.rol==='admin'&&(p.subArea==='Tecnología'||p.subArea==='Recursos Humanos'||p.email===ADMIN_MAIL)}
-function tag(p){return p.rol==='brigadista'?(p.subArea||'Brigadista'):p.rol==='admin'?('Admin'+(p.subArea?' · '+p.subArea:'')):p.rol==='seguridad'?'Seguridad':'Colaborador'}
+function tag(p){
+ var sub=normSub(p);
+ if(p.rol==='brigadista')return sub||'Brigadista';
+ if(p.rol==='seguridad')return sub||'Seguridad';
+ if(p.rol==='admin')return'Admin'+(sub?' · '+sub:'');
+ return'Colaborador';
+}
 function authErr(m){var x={EMAIL_EXISTS:'Ese correo ya está registrado.',INVALID_LOGIN_CREDENTIALS:'Correo o contraseña incorrectos.',INVALID_PASSWORD:'Contraseña incorrecta.',EMAIL_NOT_FOUND:'No existe una cuenta con ese correo.',WEAK_PASSWORD:'La contraseña debe tener al menos 6 caracteres.'};
  for(var k in x)if(String(m).indexOf(k)===0)return x[k];return 'No se pudo completar: '+m}
 function doLogin(){
@@ -186,10 +218,14 @@ function doReg(){
  if(S.busy)return;
  var n=$('#r-name').value.trim(),e=$('#r-mail').value.trim().toLowerCase(),p=$('#r-pass').value,u=$('#r-ub').value,r=$('#r-rol').value,s=$('#r-sub')?$('#r-sub').value:'';
  if(!n)return toast('Escribe tu nombre completo','err');if(!/@indrhi\.gob\.do$/.test(e))return toast('Solo se permiten correos @indrhi.gob.do','err');
- if(p.length<6)return toast('La contraseña debe tener al menos 6 caracteres','err');if((r==='brigadista'||r==='admin')&&!s)return toast('Elige '+(r==='admin'?'el departamento':'tu brigada'),'err');
+ if(p.length<6)return toast('La contraseña debe tener al menos 6 caracteres','err');
+ if((r==='brigadista'||r==='seguridad'||r==='admin')&&!s)return toast('Selecciona tu '+(r==='admin'?'departamento':r==='seguridad'?'nivel en Seguridad':'brigada'),'err');
  if(!cfg().apiKey)return toast('Sin conexión con la app: abre INDRHI Emergencias en el teléfono','err');
  var pr={nombre:n,email:e,ubicacion:u,edificio:u,rol:'colaborador',subArea:''};
- if(e===ADMIN_MAIL){pr.rol='admin';pr.subArea=s||'Tecnología'}else if(r==='brigadista'){pr.rol='brigadista';pr.subArea=s}else if(r==='seguridad'){pr.rol='seguridad'}else if(r==='admin'){pr.rolSolicitado='admin';pr.subArea=s}
+ if(e===ADMIN_MAIL){pr.rol='admin';pr.subArea=s||'Tecnología'}
+ else if(r==='brigadista'){pr.rol='brigadista';pr.subArea=s}
+ else if(r==='seguridad'){pr.rol='seguridad';pr.subArea=s}
+ else if(r==='admin'){pr.rolSolicitado='admin';pr.subArea=s}
  S.busy=true;http('POST','https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+cfg().apiKey,{email:e,password:p,returnSecureToken:true}).then(function(j){
   pr.uid=j.localId;S.session={idToken:j.idToken,refreshToken:j.refreshToken,uid:j.localId,email:e,expiresAt:Date.now()+Number(j.expiresIn)*1000,profile:pr};
   return fsSet('usuarios/'+encodeURIComponent(e),pr)}).then(function(){saveSession();start();if(pr.rolSolicitado)toast('Solicitud de Administrador enviada. Un admin de Tecnología o RRHH debe aprobarla.','ok')}).catch(function(x){S.session=null;toast(authErr(x.message),'err')}).then(function(){S.busy=false})}
@@ -199,7 +235,7 @@ function logout(){confirmM('Cerrar sesión','Dejarás de recibir avisos en este 
 function readToken(){var r=brj('getFcmToken');var t=(r&&r.ok&&r.token)?r.token:(typeof r==='string'&&r.charAt(0)!=='{'?r:'');if(t){S.fcm=t;try{localStorage.setItem('indrhi.fcmToken',t)}catch(e){}}else if(!S.fcm){try{S.fcm=localStorage.getItem('indrhi.fcmToken')||''}catch(e){}}return S.fcm}
 function topics(){var t=TOPICS[me().ubicacion];br('subscribeTopic',['indrhi_todos']);for(var k in TOPICS){if(TOPICS[k]===t)br('subscribeTopic',[t]);else br('unsubscribeTopic',[TOPICS[k]])}}
 function syncDevice(){if(!S.session||!S.fcm)return;var cx=brj('getContext')||{},p=me(),devId=getDevId(),mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android';
- fsSet('dispositivos/'+encodeURIComponent(devId),{deviceId:devId,nombre:p.nombre||'',correo:S.session.email,rol:p.rol||'colaborador',subArea:p.subArea||'',edificio:p.ubicacion||UBIC[0],topicEdificio:TOPICS[p.ubicacion]||'indrhi_ed1',fcmToken:S.fcm,modelo:mod,versionApp:String(cx.versionName||'1.0.0'),actualizadoIso:new Date().toISOString()}).catch(function(){})}
+ fsSet('dispositivos/'+encodeURIComponent(devId),{deviceId:devId,nombre:p.nombre||'',correo:S.session.email,rol:p.rol||'colaborador',subArea:normSub(p),edificio:p.ubicacion||UBIC[0],topicEdificio:TOPICS[p.ubicacion]||'indrhi_ed1',fcmToken:S.fcm,modelo:mod,versionApp:String(cx.versionName||'1.0.0'),actualizadoIso:new Date().toISOString()}).catch(function(){})}
 function start(){S.tab='emg';S.tabHist=[];pushHist();topics();readToken();loadAll();syncDevice();render();syncQ();
  clearInterval(S.poll);S.poll=setInterval(function(){if(Date.now()-(S.lb||0)>30000){S.lb=Date.now();bg()}S.sirena=br('isAlarmPlaying')===true;if(S.tab==='emg')updSiren();if(S.tab==='chat'&&S.room)loadMsgs()},4000)}
 function bg(){if(!S.session)return;Promise.resolve(ensure()).then(syncQ)}
@@ -221,7 +257,7 @@ function syncQ(){var q=queue();q.filter(function(r){return!r.synced}).forEach(fu
  var o={};for(var k in r)if(k!=='synced'&&k!=='id')o[k]=r[k];
  fsAdd('reportes',o,r.id).then(function(){r.synced=true;ls('indrhi.reportes',q);if(S.tab==='emg'||S.tab==='board')render()}).catch(function(){})})}
 function sendReport(o){var cx=brj('getContext')||{},mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android',now=new Date().toISOString();
- o.id='r'+Date.now();o.uid=S.session.uid;o.email=S.session.email;o.correo=S.session.email;o.nombre=me().nombre||'';o.rol=rol();o.subArea=me().subArea||'';o.ubicacion=me().ubicacion||'';o.edificioAsignado=me().ubicacion||'';o.fcmToken=S.fcm||'';o.deviceId=getDevId();o.dispositivo=mod;o.creado=now;o.fechaIso=now;o.synced=false;
+ o.id='r'+Date.now();o.uid=S.session.uid;o.email=S.session.email;o.correo=S.session.email;o.nombre=me().nombre||'';o.rol=rol();o.subArea=normSub(me());o.ubicacion=me().ubicacion||'';o.edificioAsignado=me().ubicacion||'';o.fcmToken=S.fcm||'';o.deviceId=getDevId();o.dispositivo=mod;o.creado=now;o.fechaIso=now;o.synced=false;
  var q=queue();q.unshift(o);ls('indrhi.reportes',q.slice(0,50));render();syncQ();toast('Reporte enviado','ok')}
 function allEmergReports(){
  var map={},list=[];
@@ -272,7 +308,20 @@ function quickRep(){var R=S.R,o,t;
  return'<p class="mut">'+t+'</p>'+o.map(function(x){return'<button class="opt" data-act="rstep" data-a="'+esc(x)+'">'+esc(x)+'</button>'}).join('')+(R.step?'<button class="btn gray sm" data-act="rback">← Paso anterior</button>':'')}
 
 function updSiren(){var d=$('#dot'),s=$('#stx');if(d)d.className='dot'+(S.sirena?' on':'');if(s)s.textContent=S.sirena?'Sirena activa al 100%':'Sirena detenida'}
-function visible(p){var m=me();if(rol()==='admin')return true;var d=p.destino||'Todos';return d==='Todos'||d===m.ubicacion||(d==='Brigadistas'&&m.rol==='brigadista')||(d==='Seguridad'&&m.rol==='seguridad')}
+
+function visible(p){
+ var m=me(),sub=normSub(m);
+ if(m.rol==='admin')return true;
+ var d=p.destino||'Todos';
+ if(d==='Todos')return true;
+ if(d===m.ubicacion)return true;
+ if(d==='Brigadistas (Todas)'||d==='Brigadistas')return m.rol==='brigadista';
+ if(BRIG.indexOf(d)>=0)return m.rol==='brigadista'&&sub===d;
+ if(d==='Seguridad (Todos)'||d==='Seguridad')return m.rol==='seguridad';
+ if(d==='Jefe de Seguridad')return m.rol==='seguridad'&&sub==='Jefe de Seguridad';
+ if(d==='Subalternos de Seguridad')return m.rol==='seguridad'&&sub==='Subalterno de Seguridad';
+ return false;
+}
 
 function boardView(){
  var f=S.filter;
@@ -317,11 +366,58 @@ function boardView(){
  });
  return h}
 
-function allRooms(){var m=me(),g=S.groups.filter(function(x){return(x.miembros||[]).indexOf(S.session.email)>=0||x.creador===S.session.email}).map(function(x){return{id:x.id,nombre:x.nombre,custom:true}});
- return ROOMS.filter(function(r){return r.id==='grupo_general'||(r.id==='grupo_brigadistas'&&(m.rol==='brigadista'||m.rol==='admin'))||(r.id==='grupo_seguridad'&&(m.rol==='seguridad'||m.rol==='admin'))||(r.id==='grupo_ed1'&&m.ubicacion===UBIC[0])||(r.id==='grupo_ed2'&&m.ubicacion===UBIC[1])||m.rol==='admin'}).concat(g)}
+function getSegmentedRooms(){
+ var m=me(),sub=normSub(m),adm=m.rol==='admin';
+ var gen=[{id:'grupo_general',nombre:'Chat General INDRHI',tag:'Todos'}];
+ if(adm||m.ubicacion===UBIC[0])gen.push({id:'grupo_ed1',nombre:'Edificio ED1',tag:'Edificio'});
+ if(adm||m.ubicacion===UBIC[1])gen.push({id:'grupo_ed2',nombre:'Edificio ED2',tag:'Edificio'});
+
+ var esp=[];
+ if(adm||m.rol==='brigadista'){
+  esp.push({id:'grupo_brigadistas',nombre:'Brigadistas INDRHI (General)',tag:'Todas las brigadas'});
+  if(adm){
+   BRIG.forEach(function(b){var r=BRIG_ROOMS[b];if(r)esp.push({id:r.id,nombre:r.nombre,tag:'Brigada'})});
+  }else if(BRIG_ROOMS[sub]){
+   esp.push({id:BRIG_ROOMS[sub].id,nombre:BRIG_ROOMS[sub].nombre,tag:'Tu brigada'});
+  }
+ }
+ if(adm||m.rol==='seguridad'){
+  esp.push({id:'grupo_seguridad',nombre:'Seguridad INDRHI (General)',tag:'Todo Seguridad'});
+  if(adm||sub==='Jefe de Seguridad'){
+   esp.push({id:'grupo_seg_jefes',nombre:'Jefatura de Seguridad',tag:'Solo Jefes'});
+   esp.push({id:'grupo_seg_subalternos',nombre:'Subalternos de Seguridad',tag:'Supervisión'});
+  }else{
+   esp.push({id:'grupo_seg_subalternos',nombre:'Subalternos de Seguridad',tag:'Tu equipo'});
+  }
+ }
+
+ var cust=S.groups.filter(function(x){
+  return adm||(x.miembros||[]).indexOf(S.session.email)>=0||x.creador===S.session.email;
+ }).map(function(x){
+  return{id:x.id,nombre:x.nombre,tag:(x.miembros?x.miembros.length+' miembros':'Grupo')};
+ });
+ return{gen:gen,esp:esp,cust:cust};
+}
+
+function renderRoomBtn(r){
+ return'<button class="opt" data-act="room" data-a="'+esc(r.id)+'" data-n="'+esc(r.nombre)+'"><span>'+esc(r.nombre)+'</span><span class="badge b">'+esc(r.tag||'')+'</span></button>';
+}
+
 function chatView(){
- if(!S.room){return'<button class="btn" style="margin-bottom:12px" data-act="newgroup">+ Crear grupo</button>'+allRooms().map(function(r){return'<button class="opt" data-act="room" data-a="'+r.id+'" data-n="'+esc(r.nombre)+'">'+esc(r.nombre)+'</button>'}).join('')}
+ if(!S.room){
+  var rm=getSegmentedRooms();
+  var h='<button class="btn" style="margin-bottom:8px" data-act="newgroup">+ Crear grupo personalizado</button>';
+  h+='<div class="sec-lbl">Canales Generales</div>'+rm.gen.map(renderRoomBtn).join('');
+  if(rm.esp.length){
+   h+='<div class="sec-lbl">Canales de Brigada y Seguridad</div>'+rm.esp.map(renderRoomBtn).join('');
+  }
+  if(rm.cust.length){
+   h+='<div class="sec-lbl">Grupos Personalizados</div>'+rm.cust.map(renderRoomBtn).join('');
+  }
+  return h;
+ }
  return'<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn gray sm" data-act="rooms">← Salas</button><b>'+esc(S.room.nombre)+'</b></div><div class="msgs" id="msgs">'+msgsHtml()+'</div><div class="row" style="margin-top:8px;align-items:center"><input id="cm" placeholder="Escribe un mensaje" style="margin:0;flex:4"><button class="btn sm" style="flex:1" data-act="send">Enviar</button></div>'}
+
 function msgsHtml(){return S.msgs.length?S.msgs.map(function(m){var own=m.email===S.session.email;return'<div class="msg '+(own?'me':'')+'"><small><b>'+esc(own?'Tú':m.nombre)+'</b> '+esc(m.etiqueta||'')+'</small>'+esc(m.texto)+'<small>'+(m.creado?new Date(m.creado).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'}):'')+'</small></div>'}).join(''):'<p class="mut">Aún no hay mensajes. Escribe el primero.</p>'}
 function loadMsgs(){if(!S.room)return;var id=S.room.id;fsList('chat_grupos/'+id+'/mensajes','orderBy=creado%20desc&pageSize=60').then(function(a){if(!S.room||S.room.id!==id)return;var n=a.reverse(),ch=JSON.stringify(n)!==JSON.stringify(S.msgs);S.msgs=n;var b=$('#msgs');if(b&&ch){var bot=b.scrollTop+b.clientHeight>=b.scrollHeight-40;b.innerHTML=msgsHtml();if(bot)b.scrollTop=b.scrollHeight}}).catch(function(){})}
 
@@ -337,13 +433,19 @@ function meView(){
  return h}
 
 function adminView(){
- var q=S.adminQ.toLowerCase(),us=S.users.filter(function(u){return!q||((u.nombre||'')+(u.email||'')).toLowerCase().indexOf(q)>=0}),cx=brj('getContext')||{},nextC=Number(cx.versionCode||2)+1;
- var h='<div class="card"><h2>Administración de usuarios</h2><input id="aq" placeholder="Buscar por nombre o correo" value="'+esc(S.adminQ)+'" oninput="window._onAq(this.value)">';
- us.forEach(function(u){var sa=u.subArea||'',uidSafe=esc(u.id);h+='<div class="card" style="box-shadow:none;border:1px solid var(--bd)"><b>'+esc(u.nombre)+'</b><div class="mut">'+esc(u.email)+'</div><div class="wrap" style="margin:6px 0"><span class="badge b">'+esc(tag(u))+'</span>'+(u.rolSolicitado?'<span class="badge a">Pide: Administrador</span>':'')+'</div>'+
+ var q=S.adminQ.toLowerCase(),us=S.users.filter(function(u){return!q||((u.nombre||'')+(u.email||'')+(u.subArea||'')).toLowerCase().indexOf(q)>=0}),cx=brj('getContext')||{},nextC=Number(cx.versionCode||2)+1;
+ var subOpts='<option value="">Sin sub-área</option>'+
+  '<optgroup label="Brigadas">'+BRIG.map(function(s){return'<option value="'+esc(s)+'">'+esc(s)+'</option>'}).join('')+'</optgroup>'+
+  '<optgroup label="Seguridad">'+SEG_NIVEL.map(function(s){return'<option value="'+esc(s)+'">'+esc(s)+'</option>'}).join('')+'</optgroup>'+
+  '<optgroup label="Administración"><option value="Tecnología">Tecnología</option><option value="Recursos Humanos">Recursos Humanos</option></optgroup>';
+ var h='<div class="card"><h2>Administración de usuarios</h2><input id="aq" placeholder="Buscar por nombre, correo o brigada" value="'+esc(S.adminQ)+'" oninput="window._onAq(this.value)">';
+ us.forEach(function(u){var sa=normSub(u),uidSafe=esc(u.id);
+  var selSub=subOpts.replace('value="'+esc(sa)+'"','value="'+esc(sa)+'" selected');
+  h+='<div class="card" style="box-shadow:none;border:1px solid var(--bd)"><b>'+esc(u.nombre)+'</b><div class="mut">'+esc(u.email)+'</div><div class="wrap" style="margin:6px 0"><span class="badge b">'+esc(tag(u))+'</span>'+(u.rolSolicitado?'<span class="badge a">Pide: Administrador</span>':'')+'</div>'+
   (u.rolSolicitado?'<button class="btn green sm" data-act="approve" data-a="'+uidSafe+'">Aprobar administrador</button> ':'')+
-  '<div class="row"><select data-role-for="'+uidSafe+'">'+['colaborador','brigadista','seguridad','admin'].map(function(r){return'<option '+(r===u.rol?'selected':'')+'>'+r+'</option>'}).join('')+'</select><select data-sub-for="'+uidSafe+'"><option value="">Sin sub-área</option>'+BRIG.concat(['Tecnología','Recursos Humanos']).map(function(s){return'<option '+(s===sa?'selected':'')+'>'+s+'</option>'}).join('')+'</select></div><button class="btn sm" data-act="saverole" data-a="'+uidSafe+'">Guardar rol</button></div>'});
+  '<div class="row"><select data-role-for="'+uidSafe+'">'+['colaborador','brigadista','seguridad','admin'].map(function(r){return'<option '+(r===u.rol?'selected':'')+'>'+r+'</option>'}).join('')+'</select><select data-sub-for="'+uidSafe+'">'+selSub+'</select></div><button class="btn sm" data-act="saverole" data-a="'+uidSafe+'">Guardar rol</button></div>'});
  h+='</div><div class="card"><h2>Correos de comunicados</h2><label>URL del webhook (Google Apps Script)</label><input id="wh" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.webhook||'')+'"><button class="btn" data-act="savewh">Guardar webhook</button></div>';
- h+='<div class="card"><h2>Publicar actualización (OTA)</h2><label>Código de versión</label><input id="v-code" type="number" value="'+nextC+'"><label>Nombre de versión</label><input id="v-name" placeholder="Ej. 1.2.1"><label>URL del APK</label><input id="v-url" type="url" value="'+DEFAULT_APK_URL+'"><label>Notas</label><textarea id="v-notes" rows="3"></textarea><button class="btn amber" data-act="pubver">Publicar versión</button></div>';
+ h+='<div class="card"><h2>Publicar actualización (OTA)</h2><label>Código de versión</label><input id="v-code" type="number" value="'+nextC+'"><label>Nombre de versión</label><input id="v-name" placeholder="Ej. 1.3.0"><label>URL del APK</label><input id="v-url" type="url" value="'+DEFAULT_APK_URL+'"><label>Notas</label><textarea id="v-notes" rows="3"></textarea><button class="btn amber" data-act="pubver">Publicar versión</button></div>';
  return h}
 window._onAq=function(val){S.adminQ=val;render()};
 
@@ -357,6 +459,23 @@ function renderPollBuilder(){
  box.innerHTML='<label>Opciones de respuesta</label>'+S.pollOpts.map(function(val,i){
   return'<div class="row" style="align-items:center;margin-bottom:6px"><input class="poll-opt" style="margin:0;flex:1" placeholder="Opción '+(i+1)+'" value="'+esc(val)+'">'+(S.pollOpts.length>2?'<button type="button" class="btn gray sm" style="flex:none" data-act="delopt" data-a="'+i+'">✕</button>':'')+'</div>';
  }).join('')+'<button type="button" class="btn gray sm" style="margin-bottom:10px" data-act="addopt">+ Agregar otra opción</button>';
+}
+
+/* ---------- Modal Crear Grupo con filtros ---------- */
+function renderGroupMembersList(){
+ var box=$('#grp-users-box');if(!box)return;
+ var f=S.grpFilter||'Todos';
+ var list=S.users.filter(function(u){
+  if(u.email===S.session.email)return false;
+  if(f==='Brigadistas')return u.rol==='brigadista';
+  if(f==='Seguridad')return u.rol==='seguridad';
+  if(f==='ED1')return u.ubicacion===UBIC[0];
+  if(f==='ED2')return u.ubicacion===UBIC[1];
+  return true;
+ });
+ box.innerHTML=list.length?list.map(function(u){
+  return'<label style="display:flex;gap:10px;align-items:center;color:var(--tx);padding:7px 0;border-bottom:1px solid var(--bd)"><input type="checkbox" class="gm" value="'+esc(u.email)+'" style="width:auto;margin:0"><div style="flex:1"><div><b>'+esc(u.nombre)+'</b></div><div class="mut">'+esc(tag(u))+' · '+esc(u.email)+'</div></div></label>';
+ }).join(''):'<p class="mut">No hay compañeros en este filtro.</p>';
 }
 
 /* ---------- Acciones ---------- */
@@ -393,7 +512,20 @@ var A={
  room:function(a,el){pushHist();S.room={id:a,nombre:el.getAttribute('data-n')};S.msgs=[];render();loadMsgs()},
  rooms:function(){S.room=null;render()},
  send:function(){var i=$('#cm'),t=i.value.trim();if(!t)return;i.value='';var m={texto:t,nombre:me().nombre,email:S.session.email,etiqueta:tag(me()),creado:new Date().toISOString()};S.msgs.push(m);var b=$('#msgs');b.innerHTML=msgsHtml();b.scrollTop=b.scrollHeight;fsAdd('chat_grupos/'+S.room.id+'/mensajes',m).catch(function(){toast('Mensaje no enviado','err')})},
- newgroup:function(){openModal('<h2>Crear grupo</h2><label>Nombre del grupo</label><input id="g-n"><label>Integrantes</label><div style="max-height:240px;overflow:auto">'+S.users.filter(function(u){return u.email!==S.session.email}).map(function(u){return'<label style="display:flex;gap:10px;align-items:center;color:var(--tx);padding:6px 0"><input type="checkbox" class="gm" value="'+esc(u.email)+'" style="width:auto;margin:0"> '+esc(u.nombre)+'<span class="mut">'+esc(u.email)+'</span></label>'}).join('')+'</div><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn" data-act="mkgroup">Crear</button></div>')},
+ newgroup:function(){
+  S.grpFilter='Todos';
+  var chips=['Todos','Brigadistas','Seguridad','ED1','ED2'].map(function(f){
+   return'<button type="button" class="chip '+(f==='Todos'?'on':'')+'" data-act="gfilter" data-a="'+f+'">'+f+'</button>';
+  }).join('');
+  openModal('<h2>Crear grupo personalizado</h2><label>Nombre del grupo</label><input id="g-n" placeholder="Ej. Médicos ED1 / Turno Nocturno"><div class="wrap" id="g-chips" style="margin-bottom:8px">'+chips+'</div><div id="grp-users-box" style="max-height:240px;overflow:auto"></div><div class="row" style="margin-top:10px"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn" data-act="mkgroup">Crear</button></div>');
+  renderGroupMembersList();
+ },
+ gfilter:function(a,el){
+  S.grpFilter=a;
+  var cs=document.querySelectorAll('#g-chips .chip');
+  cs.forEach(function(c){c.className='chip'+(c.getAttribute('data-a')===a?' on':'')});
+  renderGroupMembersList();
+ },
  mkgroup:function(){var n=$('#g-n').value.trim(),m=[].slice.call(document.querySelectorAll('.gm:checked')).map(function(c){return c.value});if(!n)return toast('Ponle nombre al grupo','err');if(!m.length)return toast('Elige al menos un integrante','err');m.push(S.session.email);
   var id='g'+Date.now();fsAdd('chat_grupos',{nombre:n,miembros:m,creador:S.session.email,creado:new Date().toISOString()},id).then(function(){closeOv();toast('Grupo creado','ok');return fsList('chat_grupos','pageSize=100')}).then(function(a){S.groups=a;render()}).catch(function(x){toast('No se pudo crear: '+x.message,'err')})},
  bridge:function(a){br(a)},health:function(){S.health=brj('getHealth');render()},
@@ -405,13 +537,37 @@ var A={
  pubver:function(){var c=Number($('#v-code').value),n=$('#v-name').value.trim(),u=$('#v-url').value.trim();if(!c||!n||!u)return toast('Completa código, nombre y URL','err');
   confirmM('¿Publicar la versión '+n+'?','Todos los teléfonos verán el aviso de actualización.',function(){fsSet('config/version',{latestVersionCode:c,latestVersionName:n,apkUrl:u,releaseNotes:$('#v-notes').value.trim(),actualizadoIso:new Date().toISOString()}).then(function(){toast('Versión publicada','ok');loadAll()}).catch(function(x){toast('No se pudo publicar: '+x.message,'err')})},'amber')}
 };
+
 function saveRole(id,r,s){fsSet('usuarios/'+encodeURIComponent(id),{rol:r,subArea:s,rolSolicitado:null},['rol','subArea','rolSolicitado']).then(function(){var u=S.users.filter(function(x){return x.id===id})[0];if(u){u.rol=r;u.subArea=s;delete u.rolSolicitado}toast('Rol actualizado','ok');render()}).catch(function(x){toast('No se pudo guardar: '+x.message,'err')})}
 function loadWh(){fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||'';if(S.tab==='me'&&isAdm()&&!document.activeElement.id)render()}).catch(function(){})}
+
 function notify(o){fsGet('config/notificaciones').then(function(c){if(!c.webhookUrl)return;
- var d=o.destino,to=S.users.filter(function(u){return d==='Todos'||(d==='Edificio ED1'&&u.ubicacion===UBIC[0])||(d==='Edificio ED2'&&u.ubicacion===UBIC[1])||(d==='Brigadistas'&&u.rol==='brigadista')||(d==='Seguridad'&&u.rol==='seguridad')}).map(function(u){return u.email});
+ var d=o.destino,to=S.users.filter(function(u){
+  var sub=normSub(u);
+  if(d==='Todos')return true;
+  if(d==='Edificio ED1')return u.ubicacion===UBIC[0];
+  if(d==='Edificio ED2')return u.ubicacion===UBIC[1];
+  if(d==='Brigadistas (Todas)'||d==='Brigadistas')return u.rol==='brigadista';
+  if(BRIG.indexOf(d)>=0)return u.rol==='brigadista'&&sub===d;
+  if(d==='Seguridad (Todos)'||d==='Seguridad')return u.rol==='seguridad';
+  if(d==='Jefe de Seguridad')return u.rol==='seguridad'&&sub==='Jefe de Seguridad';
+  if(d==='Subalternos de Seguridad')return u.rol==='seguridad'&&sub==='Subalterno de Seguridad';
+  return false;
+ }).map(function(u){return u.email});
  if(!to.length)return;fetch(c.webhookUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret:'INDRHI_ALERTA_2026',tipo:o.tipo,titulo:o.titulo,descripcion:o.descripcion,fechaEvento:o.fecha||'',fecha:o.fecha||'',enlace:o.enlace||'',destino:d,autor:o.autor,emails:to,destinatarios:to})}).then(function(){toast('Correos enviados a '+to.length+' personas','ok')}).catch(function(){toast('No se pudieron enviar los correos','err')})}).catch(function(){})}
+
 function subw(){var r=$('#r-rol'),w=$('#r-subw');if(!r||!w)return;var v=r.value;
- w.innerHTML=v==='brigadista'?'<label>Brigada</label><select id="r-sub">'+BRIG.map(function(b){return'<option>'+b+'</option>'}).join('')+'</select>':v==='admin'?'<label>Departamento</label><select id="r-sub"><option>Tecnología</option><option>Recursos Humanos</option></select><p class="mut">Un administrador de Tecnología o RRHH debe aprobar tu solicitud. Mientras tanto tendrás rol de colaborador.</p>':''}
+ if(v==='brigadista'){
+  w.innerHTML='<label>Brigada asignada</label><select id="r-sub">'+BRIG.map(function(b){return'<option>'+esc(b)+'</option>'}).join('')+'</select>';
+ }else if(v==='seguridad'){
+  w.innerHTML='<label>Nivel en Seguridad</label><select id="r-sub"><option value="Subalterno de Seguridad">Subalterno de Seguridad</option><option value="Jefe de Seguridad">Jefe de Seguridad</option></select>';
+ }else if(v==='admin'){
+  w.innerHTML='<label>Departamento</label><select id="r-sub"><option>Tecnología</option><option>Recursos Humanos</option></select><p class="mut">Un administrador de Tecnología o RRHH debe aprobar tu solicitud. Mientras tanto tendrás rol de colaborador.</p>';
+ }else{
+  w.innerHTML='';
+ }
+}
+
 function ptipo(){
  var t=$('#p-tipo').value,e=$('#p-ex');
  if(t==='Curso'||t==='Reunión'){
