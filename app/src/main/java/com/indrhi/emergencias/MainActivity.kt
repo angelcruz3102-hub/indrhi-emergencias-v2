@@ -82,6 +82,9 @@ class MainActivity : AppCompatActivity() {
                 if (url.startsWith("file:///android_asset/")) {
                     return false
                 }
+                if (request?.isForMainFrame == false) {
+                    return false
+                }
                 if (url.startsWith("https://")) {
                     try {
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
