@@ -16,9 +16,29 @@ android {
         versionName = "1.1.0"
     }
 
+    signingConfigs {
+        create("indrhiFixed") {
+            val ksFile = file("keystore.jks")
+            if (ksFile.exists()) {
+                storeFile = ksFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "Indrhi2026!"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "indrhi_key"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "Indrhi2026!"
+            }
+        }
+    }
+
     buildTypes {
+        getByName("debug") {
+            if (file("keystore.jks").exists()) {
+                signingConfig = signingConfigs.getByName("indrhiFixed")
+            }
+        }
         release {
             isMinifyEnabled = false
+            if (file("keystore.jks").exists()) {
+                signingConfig = signingConfigs.getByName("indrhiFixed")
+            }
         }
     }
 
