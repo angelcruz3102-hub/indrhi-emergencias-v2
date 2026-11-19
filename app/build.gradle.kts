@@ -12,8 +12,8 @@ android {
         applicationId = "com.indrhi.emergencias"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.3.1"
+        versionCode = 5
+        versionName = "1.4.0"
     }
 
     signingConfigs {
