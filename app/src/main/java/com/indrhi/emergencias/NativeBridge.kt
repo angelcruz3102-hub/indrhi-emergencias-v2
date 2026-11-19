@@ -14,6 +14,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.webkit.JavascriptInterface
 import androidx.core.content.pm.PackageInfoCompat
+import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONObject
 
 class NativeBridge(private val activity: Activity) {
@@ -67,6 +68,40 @@ class NativeBridge(private val activity: Activity) {
                 obj.put("ok", true)
                 obj.put("token", token)
             }
+            obj.toString()
+        } catch (t: Throwable) {
+            errorJson(t)
+        }
+    }
+
+    @JavascriptInterface
+    fun subscribeTopic(topic: String): String {
+        return try {
+            val clean = topic.trim().replace(Regex("[^a-zA-Z0-9-_.~%]"), "_")
+            if (clean.isEmpty()) {
+                return "{\"ok\":false,\"error\":\"topic vacío\"}"
+            }
+            FirebaseMessaging.getInstance().subscribeToTopic(clean)
+            val obj = JSONObject()
+            obj.put("ok", true)
+            obj.put("topic", clean)
+            obj.toString()
+        } catch (t: Throwable) {
+            errorJson(t)
+        }
+    }
+
+    @JavascriptInterface
+    fun unsubscribeTopic(topic: String): String {
+        return try {
+            val clean = topic.trim().replace(Regex("[^a-zA-Z0-9-_.~%]"), "_")
+            if (clean.isEmpty()) {
+                return "{\"ok\":false,\"error\":\"topic vacío\"}"
+            }
+            FirebaseMessaging.getInstance().unsubscribeFromTopic(clean)
+            val obj = JSONObject()
+            obj.put("ok", true)
+            obj.put("topic", clean)
             obj.toString()
         } catch (t: Throwable) {
             errorJson(t)
