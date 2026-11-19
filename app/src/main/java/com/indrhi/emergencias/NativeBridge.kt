@@ -75,6 +75,25 @@ class NativeBridge(private val activity: Activity) {
     }
 
     @JavascriptInterface
+    fun getFirebaseConfig(): String {
+        return try {
+            val res = activity.resources
+            val pkg = activity.packageName
+            val apiKeyId = res.getIdentifier("google_api_key", "string", pkg)
+            val projectIdId = res.getIdentifier("project_id", "string", pkg)
+            val apiKey = if (apiKeyId != 0) res.getString(apiKeyId) else ""
+            val projectId = if (projectIdId != 0) res.getString(projectIdId) else "indrhi-emergencias"
+            val obj = JSONObject()
+            obj.put("ok", apiKey.isNotEmpty())
+            obj.put("apiKey", apiKey)
+            obj.put("projectId", projectId)
+            obj.toString()
+        } catch (t: Throwable) {
+            errorJson(t)
+        }
+    }
+
+    @JavascriptInterface
     fun subscribeTopic(topic: String): String {
         return try {
             val clean = topic.trim().replace(Regex("[^a-zA-Z0-9-_.~%]"), "_")
