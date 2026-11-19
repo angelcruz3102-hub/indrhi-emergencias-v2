@@ -63,7 +63,6 @@ label{font-size:13px;color:var(--mut);font-weight:600}
 .hl{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)}.hl:last-child{border:0}
 .led{width:14px;height:14px;border-radius:50%;flex:none}.led.g{background:var(--green)}.led.r{background:var(--red)}
 .opt{border:2px solid var(--bd);border-radius:14px;padding:13px 14px;margin-bottom:8px;font-weight:600;cursor:pointer;background:var(--card);width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.pre{word-break:break-all;font-size:12px;background:var(--bg);padding:8px;border-radius:10px;margin:6px 0}
 .m-box{border:1px dashed var(--bd);border-radius:12px;padding:10px;margin:8px 0 12px;background:var(--bg);text-align:left}
 .m-prev{position:relative;margin-top:8px;border-radius:10px;overflow:hidden;background:#000}
 .m-prev img,.m-prev video{width:100%;max-height:180px;object-fit:contain;display:block}
@@ -79,6 +78,11 @@ label{font-size:13px;color:var(--mut);font-weight:600}
 .chk-item{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--bd);color:var(--tx);font-weight:500;cursor:pointer}
 .chk-item:last-child{border-bottom:0}
 .chk-item input{width:18px;height:18px;margin:0;flex:none;accent-color:var(--blue)}
+.inc-card{border-left:5px solid var(--red);background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px;margin-bottom:12px}
+.inc-card.med{border-left-color:var(--amber)}
+.mag-head{background:linear-gradient(135deg,#1E3A8A,#1D4ED8);color:#fff;border-radius:var(--r);padding:14px 16px;margin-bottom:12px}
+.mag-head h2{margin:0 0 2px;font-size:18px}
+.mag-head p{margin:0;font-size:13px;opacity:.9}
 :focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 </style></head><body>
 <div id="app"></div><div id="ov"></div><div id="toast"></div>
@@ -117,7 +121,7 @@ var LEGACY_BRIG={
 
 var UBIC=['Edificio ED1','Edificio ED2','Exterior / Regional'];
 var TOPICS={'Edificio ED1':'indrhi_ed1','Edificio ED2':'indrhi_ed2','Exterior / Regional':'indrhi_exterior'};
-var TIPOS=['Información','Curso','Reunión','Encuesta','Reporte'];
+var TIPOS=['Información','Curso','Reunión','Encuesta'];
 var DEST=['Todos','Edificio ED1','Edificio ED2','Brigadistas (Todas)'].concat(BRIG).concat(['Seguridad (Todos)','Jefe de Seguridad','Subalternos de Seguridad']);
 
 var IC={
@@ -133,7 +137,7 @@ function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){retur
 function ls(k,v){try{if(v===undefined){return JSON.parse(localStorage.getItem(k))}localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
 function br(n,a){try{if(B&&typeof B[n]==='function'){return B[n].apply(B,a||[])}}catch(e){}return null}
 function brj(n){var r=br(n);try{return typeof r==='string'?JSON.parse(r):r}catch(e){return null}}
-var tt;function toast(m,k){var t=$('#toast');t.textContent=m;t.className='on '+(k||'');clearTimeout(tt);tt=setTimeout(function(){t.className=''},3400)}
+var tt;function toast(m,k){var t=$('#toast');t.textContent=m;t.className='on '+(k||'');clearTimeout(tt);tt=setTimeout(function(){t.className=''},3600)}
 function pushHist(){try{window.history.pushState({indrhi:Date.now()},'')}catch(e){}}
 function closeOv(){clearMedia('emerg');clearMedia('board');$('#ov').innerHTML=''}
 function openModal(h,c){pushHist();$('#ov').innerHTML='<div class="ov" data-act="ovclose"><div class="modal '+(c?'c':'')+'">'+h+'</div></div>'}
@@ -169,10 +173,14 @@ function userBrigs(p){
 /* ---------- Permisos ---------- */
 function me(){return S.session&&S.session.profile||{}}
 function rol(){return me().rol||'colaborador'}
-function canPub(){return['admin','brigadista','seguridad'].indexOf(rol())>=0||userBrigs(me()).length>0}
 function isAdm(){
  var p=me();
  return p.email===ADMIN_MAIL||(p.rol==='admin'&&ADM_AREAS.indexOf(p.subArea)>=0);
+}
+/* Solo Recursos Humanos (y admin principal) puede publicar en el Tablón */
+function canPublishBoard(){
+ var p=me();
+ return p.email===ADMIN_MAIL||(p.rol==='admin'&&p.subArea==='Recursos Humanos');
 }
 function canSiren(){
  var p=me(),sub=normSub(p);
@@ -180,6 +188,15 @@ function canSiren(){
  if(p.rol==='seguridad'&&sub==='Jefe de Seguridad')return true;
  if(p.rol==='admin'&&ADM_AREAS.indexOf(sub)>=0)return true;
  return false;
+}
+function isDispensario(p){
+ return userBrigs(p).indexOf('Brigada Médica / Primeros Auxilios')>=0;
+}
+function isRRHH(p){
+ return p.rol==='admin'&&p.subArea==='Recursos Humanos';
+}
+function isJefeSeg(p){
+ return p.rol==='seguridad'&&normSub(p)==='Jefe de Seguridad';
 }
 function roleLabel(p){
  var sub=normSub(p);
@@ -201,7 +218,104 @@ function badgesHtml(p){
  return h;
 }
 
+/* ---------- Enrutamiento de Alertas e Incidentes ---------- */
+function classifyIncident(o){
+ var t=String(o.tipo||''),est=String(o.estado||'');
+ if(est==='A salvo'||t==='Estoy a salvo')return'salvo';
+ if(est==='Hay otras personas afectadas')return'varias';
+ if(t==='Accidente'||t==='Necesito ayuda'||est==='Herido/a'||est==='Atrapado/a')return'una';
+ return'estructural';
+}
+function recipientMatchesCategory(u,cat){
+ if(cat==='estructural'){
+  return u.email===ADMIN_MAIL||(u.rol==='admin'&&ADM_AREAS.indexOf(u.subArea)>=0)||isJefeSeg(u);
+ }
+ if(cat==='una'){
+  return isDispensario(u)||isRRHH(u)||isJefeSeg(u)||u.email===ADMIN_MAIL;
+ }
+ if(cat==='varias'){
+  return isDispensario(u)||isRRHH(u)||u.rol==='seguridad'||u.email===ADMIN_MAIL;
+ }
+ return false;
+}
+function incidentAppliesToMe(r){
+ if(!r||r.atendido===true)return false;
+ var cat=r.categoria||classifyIncident(r);
+ if(cat==='salvo')return false;
+ return recipientMatchesCategory(me(),cat);
+}
+function activeIncidentsForMe(){
+ return allEmergReports().filter(function(r){
+  return incidentAppliesToMe(r);
+ }).slice(0,8);
+}
+function checkIncomingIncidents(){
+ var list=activeIncidentsForMe();
+ if(!list.length)return;
+ var latest=list[0];
+ var lid=latest.id||latest.creado||'';
+ var seen=ls('indrhi.seenIncId')||'';
+ if(lid&&lid!==seen){
+  ls('indrhi.seenIncId',lid);
+  var cat=latest.categoria||classifyIncident(latest);
+  var prefix=cat==='estructural'?'ALERTA DE INCIDENTE: ':cat==='varias'?'EMERGENCIA MÚLTIPLE: ':'ATENCIÓN MÉDICA / SEGURIDAD: ';
+  toast(prefix+(latest.tipo||'Incidente')+' en '+(latest.lugar||latest.ubicacion||'INDRHI'),'err');
+  if(S.tab==='emg')render();
+ }
+}
+function dispatchIncidentNotification(r){
+ getWebhookUrl().then(function(wh){
+  if(!wh)return;
+  var cat=r.categoria||classifyIncident(r);
+  if(cat==='salvo')return;
+  var targetUsers=S.users.filter(function(u){return recipientMatchesCategory(u,cat)});
+  var emails=targetUsers.map(function(u){return u.email});
+  if(emails.indexOf(ADMIN_MAIL)<0)emails.push(ADMIN_MAIL);
+  var asunto=cat==='estructural'
+   ?'[ALERTA ESTRUCTURAL] '+(r.tipo||'Incidente')+' en '+(r.lugar||'INDRHI')
+   :cat==='varias'
+   ?'[EMERGENCIA VARIAS PERSONAS] '+(r.tipo||'Incidente')+' en '+(r.lugar||'INDRHI')
+   :'[EMERGENCIA 1 PERSONA] '+(r.tipo||'Incidente')+' en '+(r.lugar||'INDRHI');
+  var detalle='Reportado por: '+(r.nombre||r.correo)+' ('+(r.subArea||r.rol)+')<br>'
+   +'Ubicación reportada: <b>'+(r.lugar||'No especificada')+'</b><br>'
+   +'Estado: <b>'+(r.estado||'Requiere atención')+'</b><br>'
+   +'Acción requerida: '+(cat==='estructural'?'Evaluar evacuación del edificio o de toda la institución.':cat==='varias'?'Coordinar Dispensario Médico, RRHH y Seguridad (evaluar evacuación y llamada al 911).':'Asistencia de Dispensario Médico, RRHH y Jefatura de Seguridad.');
+  fetch(wh,{
+   method:'POST',
+   mode:'no-cors',
+   headers:{'Content-Type':'text/plain;charset=utf-8'},
+   body:JSON.stringify({
+    secret:'INDRHI_ALERTA_2026',
+    tipo:asunto,
+    titulo:(r.tipo||'Incidente')+' · '+(r.lugar||''),
+    descripcion:detalle,
+    enlace:r.mediaViewUrl||r.mediaUrl||'',
+    destino:cat,
+    autor:r.nombre||'',
+    emails:emails
+   })
+  }).catch(function(){});
+ });
+}
+
 /* ---------- Sirena Global (Todos los teléfonos) ---------- */
+function triggerSirenGlobal(scope){
+ var aid='alm_'+Date.now();
+ ls('indrhi.ackSirenId',aid);
+ br('testAlarm');
+ S.sirena=true;
+ var payload={activa:true,alertaId:aid,destino:scope,activadaPor:me().nombre||'',rol:tag(me()),actualizadoIso:new Date().toISOString()};
+ S.globalSiren=payload;
+ S.lastRemoteActive=true;
+ render();
+ var scopeTxt=scope==='indrhi_ed1'?'el Edificio ED1':scope==='indrhi_ed2'?'el Edificio ED2':'TODOS los edificios';
+ fsSet('config/sirena',payload).then(function(){
+  toast('Sirena general activada en '+scopeTxt,'ok');
+  broadcastSirenPush(aid,scope);
+ }).catch(function(x){
+  toast('Sirena local activada, error al sincronizar: '+x.message,'err');
+ });
+}
 function sirenAppliesToMe(gs){
  if(!gs||!gs.destino||gs.destino==='indrhi_todos')return true;
  var myTopic=TOPICS[me().ubicacion]||'indrhi_ed1';
@@ -273,7 +387,7 @@ function mediaPickerHtml(slot,label){
  if(m&&m.file){
   prev='<div class="m-prev">'+(m.type==='video'?'<video src="'+esc(m.previewUrl)+'" controls playsinline></video>':'<img src="'+esc(m.previewUrl)+'" alt="Vista previa">')+'<button type="button" class="m-del" data-act="clrmedia" data-a="'+slot+'">✕</button></div><div class="mut" style="margin-top:4px">'+esc(m.name)+'</div>';
  }
- return'<div class="m-box"><button type="button" class="btn gray sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px" data-act="pickmedia" data-a="'+slot+'">'+IC.cam+'<span>'+(m&&m.file?'Cambiar foto o video':(label||'Subir foto o video a Drive'))+'</span></button><div id="mp-'+slot+'">'+prev+'</div><input id="ml-'+slot+'" type="url" placeholder="O pega un enlace en línea (Drive, YouTube, etc.)" style="margin:8px 0 0;font-size:13px;padding:9px 11px" value="'+esc((m&&m.extUrl)||'')+'"></div>';
+ return'<div class="m-box"><button type="button" class="btn gray sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px" data-act="pickmedia" data-a="'+slot+'">'+IC.cam+'<span>'+(m&&m.file?'Cambiar foto o video':(label||'Subir foto o video'))+'</span></button><div id="mp-'+slot+'">'+prev+'</div><input id="ml-'+slot+'" type="url" placeholder="O pega un enlace en línea (Drive, YouTube, etc.)" style="margin:8px 0 0;font-size:13px;padding:9px 11px" value="'+esc((m&&m.extUrl)||'')+'"></div>';
 }
 function refreshMediaSlotUI(slot){
  if(slot==='chat'){render();return}
@@ -472,32 +586,48 @@ function topics(){var t=TOPICS[me().ubicacion];br('subscribeTopic',['indrhi_todo
 function syncDevice(){if(!S.session||!S.fcm)return;var cx=brj('getContext')||{},p=me(),devId=getDevId(),mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android';
  fsSet('dispositivos/'+encodeURIComponent(devId),{deviceId:devId,nombre:p.nombre||'',correo:S.session.email,rol:p.rol||'colaborador',subArea:normSub(p),brigadas:userBrigs(p),edificio:p.ubicacion||UBIC[0],topicEdificio:TOPICS[p.ubicacion]||'indrhi_ed1',fcmToken:S.fcm,modelo:mod,versionApp:String(cx.versionName||'1.0.0'),actualizadoIso:new Date().toISOString()}).catch(function(){})}
 function start(){S.tab='emg';S.tabHist=[];pushHist();topics();readToken();loadAll();syncDevice();checkGlobalSiren();render();syncQ();
- clearInterval(S.poll);S.poll=setInterval(function(){if(Date.now()-(S.lb||0)>30000){S.lb=Date.now();bg()}S.sirena=br('isAlarmPlaying')===true;if(S.tab==='emg')updSiren();checkGlobalSiren();if(S.tab==='chat'&&S.room)loadMsgs()},4000)}
-function bg(){if(!S.session)return;Promise.resolve(ensure()).then(syncQ)}
+ clearInterval(S.poll);S.poll=setInterval(function(){if(Date.now()-(S.lb||0)>20000){S.lb=Date.now();bg()}S.sirena=br('isAlarmPlaying')===true;if(S.tab==='emg')updSiren();checkGlobalSiren();if(S.tab==='chat'&&S.room)loadMsgs()},4000)}
+function bg(){if(!S.session)return;Promise.resolve(ensure()).then(function(){syncQ();refreshReports()})}
+function refreshReports(){
+ fsList('reportes','pageSize=100').then(function(a){
+  var prev=S.reports.length;
+  S.reports=a;
+  checkIncomingIncidents();
+  if(S.tab==='emg'&&a.length!==prev)render();
+ }).catch(function(){});
+}
 function loadAll(){
  fsGet('usuarios/'+encodeURIComponent(S.session.email)).then(function(p){if(p&&p.email&&S.session){p.ubicacion=p.ubicacion||p.edificio||UBIC[0];p.brigadas=userBrigs(p);S.session.profile=Object.assign({},S.session.profile,p);saveSession();syncDevice();render()}}).catch(function(){});
  fsGet('config/version').then(function(v){S.ver=v;render()}).catch(function(){});
  fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||''}).catch(function(){});
  fsList('comunicados','orderBy=creado%20desc&pageSize=60').then(function(a){S.posts=a;if(S.tab==='board')render()}).catch(function(){});
- fsList('reportes','pageSize=100').then(function(a){S.reports=a;if(S.tab==='board')render()}).catch(function(){});
+ refreshReports();
  fsList('usuarios','pageSize=300').then(function(a){S.users=a;if(S.tab==='me'||S.tab==='chat')render()}).catch(function(){});
  fsList('chat_grupos','pageSize=100').then(function(a){S.groups=a}).catch(function(){});
  S.health=brj('getHealth');S.sirena=br('isAlarmPlaying')===true}
-window.onFcmToken=function(t){if(!t)return;S.fcm=t;try{localStorage.setItem('indrhi.fcmToken',t)}catch(e){}if(S.tab==='me')render();syncDevice()};
+window.onFcmToken=function(t){if(!t)return;S.fcm=t;try{localStorage.setItem('indrhi.fcmToken',t)}catch(e){}syncDevice()};
 window.onUpdateDownloadState=function(st,d){S.updState=st;S.upd=d||st;if(S.tab==='emg'||S.tab==='me')render()};
-window.refreshHealth=function(){S.health=brj('getHealth');checkGlobalSiren();if(S.tab==='me')render()};
+window.refreshHealth=function(){S.health=brj('getHealth');checkGlobalSiren();refreshReports();if(S.tab==='me')render()};
 
 /* ---------- Reportes ---------- */
 function queue(){return ls('indrhi.reportes')||[]}
 function syncQ(){var q=queue();q.filter(function(r){return!r.synced}).forEach(function(r){
  var o={};for(var k in r)if(k!=='synced'&&k!=='id')o[k]=r[k];
- fsAdd('reportes',o,r.id).then(function(){r.synced=true;ls('indrhi.reportes',q);if(S.tab==='emg'||S.tab==='board')render()}).catch(function(){})})}
+ fsAdd('reportes',o,r.id).then(function(){r.synced=true;ls('indrhi.reportes',q);refreshReports();if(S.tab==='emg')render()}).catch(function(){})})}
 function sendReport(o){
  uploadMedia('emerg','Reportes').then(function(m){
   if(m){o.mediaUrl=m.url;o.mediaViewUrl=m.viewUrl;o.mediaType=m.type;o.mediaName=m.name}
   var cx=brj('getContext')||{},mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android',now=new Date().toISOString();
+  o.categoria=classifyIncident(o);
+  o.atendido=false;
   o.id='r'+Date.now();o.uid=S.session.uid;o.email=S.session.email;o.correo=S.session.email;o.nombre=me().nombre||'';o.rol=rol();o.subArea=tag(me());o.ubicacion=me().ubicacion||'';o.edificioAsignado=me().ubicacion||'';o.fcmToken=S.fcm||'';o.deviceId=getDevId();o.dispositivo=mod;o.creado=now;o.fechaIso=now;o.synced=false;
-  var q=queue();q.unshift(o);ls('indrhi.reportes',q.slice(0,50));render();syncQ();toast('Reporte enviado','ok');
+  var q=queue();q.unshift(o);ls('indrhi.reportes',q.slice(0,50));render();syncQ();
+  dispatchIncidentNotification(o);
+  var msgOk=o.categoria==='estructural'?'Alerta enviada a Administración para evaluar evacuación'
+   :o.categoria==='varias'?'Alerta enviada a Dispensario Médico, RRHH y Seguridad'
+   :o.categoria==='una'?'Reporte enviado a Dispensario Médico, RRHH y Jefe de Seguridad'
+   :'Estado registrado';
+  toast(msgOk,'ok');
  }).catch(function(err){
   clearMedia('emerg');
   toast(err.message||'No se pudo guardar el archivo','err');
@@ -528,6 +658,33 @@ function authView(){
  '<label>Correo institucional</label><input id="a-mail" type="email" autocomplete="username" placeholder="usuario@indrhi.gob.do"><label>Contraseña</label><input id="a-pass" type="password" autocomplete="current-password"><button class="btn" data-act="login">Entrar</button>':
  '<label>Nombre completo</label><input id="r-name" autocomplete="name"><label>Correo institucional</label><input id="r-mail" type="email" placeholder="usuario@indrhi.gob.do"><label>Contraseña (mínimo 6)</label><input id="r-pass" type="password" autocomplete="new-password"><label>Ubicación habitual</label><select id="r-ub">'+UBIC.map(function(u){return'<option>'+u+'</option>'}).join('')+'</select><label>Rol</label><select id="r-rol" data-chg="rol"><option value="colaborador">Colaborador General</option><option value="brigadista">Brigadista</option><option value="seguridad">Seguridad</option></select><div id="r-subw"></div><button class="btn" data-act="reg">Crear cuenta</button>')+'</div>'}
 
+function renderIncomingAlerts(){
+ var list=activeIncidentsForMe();
+ if(!list.length)return'';
+ var h='<div class="sec-lbl" style="color:var(--red)">Alertas e incidentes activos para tu área ('+list.length+')</div>';
+ list.forEach(function(r){
+  var cat=r.categoria||classifyIncident(r);
+  var badgeTxt=cat==='estructural'?'Incidente Estructural · Decisión de Evacuación':cat==='varias'?'Emergencia · Varias Personas': 'Emergencia · 1 Persona';
+  var fTxt=r.creado?new Date(r.creado).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'}):'';
+  var scopeEd=String(r.lugar||'').indexOf('ED2')>=0?'indrhi_ed2':'indrhi_ed1';
+  var labelEd=scopeEd==='indrhi_ed2'?'Evacuar ED2':'Evacuar ED1';
+  h+='<div class="inc-card '+(cat==='una'?'med':'')+'"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="badge '+(cat==='una'?'a':'r')+'">'+esc(badgeTxt)+'</span><span class="mut">'+esc(fTxt)+'</span></div><h3 style="margin-top:8px">'+esc(r.tipo||'Incidente')+' · '+esc(r.lugar||r.ubicacion||'')+'</h3><div class="mut">Estado: <b>'+esc(r.estado||'Requiere atención')+'</b> · Reportado por: '+esc(r.nombre||r.correo||'')+'</div>'+renderMedia(r.mediaUrl,r.mediaType,true,r.mediaViewUrl);
+  h+='<div class="wrap" style="margin-top:10px">';
+  if(canSiren()){
+   h+='<button class="btn red sm" data-act="evacone" data-a="'+scopeEd+'">'+labelEd+'</button>';
+   h+='<button class="btn red sm" data-act="evacboth">Evacuar ambos edificios</button>';
+  }
+  if(cat==='varias'||cat==='una'){
+   h+='<a class="btn amber sm" style="text-decoration:none;display:inline-flex;align-items:center" href="tel:911">Llamar 911</a>';
+  }
+  if(r.id){
+   h+='<button class="btn gray sm" data-act="ackinc" data-a="'+esc(r.id)+'">Marcar atendido</button>';
+  }
+  h+='</div></div>';
+ });
+ return h;
+}
+
 function emgView(){
  var h='',v=S.ver;
  if(v&&v.latestVersionCode){
@@ -538,6 +695,7 @@ function emgView(){
    h+='<div class="banner"><b>Nueva versión '+esc(remName||v.latestVersionCode)+'</b><div style="font-size:13px">'+esc(v.releaseNotes||'')+'</div>'+(S.upd?'<div style="font-size:13px;margin-top:6px">'+esc(S.upd)+'</div>':'')+'<button class="btn" data-act="upd">'+(ready?'Instalar ahora':'Actualizar')+'</button></div>';
   }
  }
+ h+=renderIncomingAlerts();
  var gs=S.globalSiren,gAct=gs&&gs.activa===true,isOn=S.sirena||gAct;
  var stSub=gAct?('Activada para '+(gs.destino==='indrhi_ed1'?'Edificio ED1':gs.destino==='indrhi_ed2'?'Edificio ED2':'todos los edificios')+(gs.activadaPor?' · '+gs.activadaPor:'')):'Sin alarma general activa';
  h+='<div class="card"><div class="siren"><div id="dot" class="dot '+(isOn?'on':'')+'"></div><div><h2 id="stx" style="margin:0">'+(isOn?'Sirena de evacuación activa':'Sirena en espera')+'</h2><span class="mut">'+esc(stSub)+'</span></div></div>';
@@ -576,48 +734,30 @@ function visible(p){
 }
 
 function boardView(){
- var f=S.filter;
- var h='<div class="wrap" style="margin-bottom:12px">'+['Todos'].concat(TIPOS).map(function(t){return'<button class="chip '+(f===t?'on':'')+'" data-act="filter" data-a="'+t+'">'+t+'</button>'}).join('')+'</div>';
- if(canPub()){
-  var btnTxt=f==='Encuesta'?'+ Crear encuesta':f==='Curso'?'+ Publicar curso':f==='Reunión'?'+ Programar reunión':f==='Reporte'?'+ Publicar reporte':'+ Publicar comunicado';
+ var f=S.filter,canPub=canPublishBoard();
+ var h='';
+ if(!canPub){
+  h+='<div class="mag-head"><h2>Novedades INDRHI</h2><p>Boletín informativo, capacitaciones, reuniones y encuestas institucionales.</p></div>';
+ }
+ h+='<div class="wrap" style="margin-bottom:12px">'+['Todos'].concat(TIPOS).map(function(t){return'<button class="chip '+(f===t?'on':'')+'" data-act="filter" data-a="'+t+'">'+t+'</button>'}).join('')+'</div>';
+ if(canPub){
+  var btnTxt=f==='Encuesta'?'+ Crear encuesta':f==='Curso'?'+ Publicar curso':f==='Reunión'?'+ Programar reunión':'+ Publicar novedad';
   h+='<button class="btn" style="margin-bottom:12px" data-act="pubform">'+btnTxt+'</button>';
  }
  var items=[];
  S.posts.forEach(function(p){
+  if(p.tipo==='Reporte')return;
   if(visible(p)&&(f==='Todos'||p.tipo===f))items.push(p);
  });
- if(f==='Todos'||f==='Reporte'){
-  allEmergReports().forEach(function(r){
-   items.push({
-    _emerg:true,
-    tipo:'Reporte',
-    titulo:r.tipo||'Reporte de emergencia',
-    lugar:r.lugar||r.ubicacion||r.edificioAsignado||'No especificado',
-    estado:r.estado||'',
-    autor:(r.nombre||r.correo||'Colaborador')+(r.subArea?' ('+r.subArea+')':''),
-    creado:r.creado||r.fechaIso||'',
-    mediaUrl:r.mediaUrl||'',
-    mediaViewUrl:r.mediaViewUrl||'',
-    mediaType:r.mediaType||''
-   });
-  });
- }
  items.sort(function(a,b){return String(b.creado||'').localeCompare(String(a.creado||''))});
 
- if(!items.length)h+='<div class="card mut">No hay elementos en esta categoría todavía.</div>';
+ if(!items.length)h+='<div class="card mut">No hay novedades publicadas en esta sección todavía.</div>';
  items.forEach(function(p){
-  if(p._emerg){
-   var stLow=String(p.estado).toLowerCase();
-   var stCls=stLow.indexOf('salvo')>=0||stLow.indexOf('bien')>=0?'g':(stLow.indexOf('ayuda')>=0||stLow.indexOf('herido')>=0||stLow.indexOf('atrapado')>=0?'r':'a');
-   var fTxt=p.creado?new Date(p.creado).toLocaleString('es-DO',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-   h+='<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="badge r">Reporte de Emergencia</span><span class="badge '+stCls+'">'+esc(p.estado||'Registrado')+'</span></div><h3 style="margin-top:8px">'+esc(p.titulo)+'</h3><div class="mut">Lugar: <b>'+esc(p.lugar)+'</b></div>'+renderMedia(p.mediaUrl,p.mediaType,false,p.mediaViewUrl)+'<div class="mut" style="margin-top:6px">'+esc(p.autor)+(fTxt?' · '+esc(fTxt):'')+'</div></div>';
-   return;
-  }
   h+='<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><span class="badge b">'+esc(p.tipo)+'</span><span class="mut">'+esc(p.destino||'Todos')+'</span></div><h3 style="margin-top:8px">'+esc(p.titulo)+'</h3>'+(p.descripcion?'<p style="margin:0 0 8px">'+esc(p.descripcion)+'</p>':'')+renderMedia(p.mediaUrl,p.mediaType,false,p.mediaViewUrl);
   if(p.tipo==='Curso'||p.tipo==='Reunión'){if(p.fecha)h+='<div class="mut">Fecha: '+esc(p.fecha)+'</div>';if(p.enlace)h+='<a class="btn sm" style="display:inline-block;text-decoration:none;margin-top:8px" href="'+esc(p.enlace)+'" target="_blank" rel="noopener">'+(p.tipo==='Curso'?'Abrir material':'Unirme a la reunión')+'</a>'}
   if(p.tipo==='Encuesta'&&p.opciones){var v=p.votos||{},ks=Object.keys(v),tot=ks.length,mine=v[S.session.uid];
    p.opciones.forEach(function(o,i){var c=ks.filter(function(k){return v[k]===i}).length,pc=tot?Math.round(c*100/tot):0;h+='<div class="bar" data-act="vote" data-a="'+p.id+'" data-i="'+i+'"><i style="width:'+pc+'%;'+(mine===i?'background:#93C5FD':'')+'"></i><span><b>'+esc(o)+(mine===i?' ✓':'')+'</b><span>'+pc+'% ('+c+')</span></span></div>'});h+='<div class="mut">'+tot+' voto'+(tot===1?'':'s')+(mine===undefined?' · toca una opción para votar':'')+'</div>'}
-  h+='<div class="mut" style="margin-top:6px">'+esc(p.autor||'')+' · '+(p.creado?new Date(p.creado).toLocaleDateString('es-DO'):'')+'</div></div>';
+  h+='<div class="mut" style="margin-top:6px">Recursos Humanos · '+(p.creado?new Date(p.creado).toLocaleDateString('es-DO'):'')+'</div></div>';
  });
  return h}
 
@@ -673,7 +813,7 @@ function chatView(){
  }
  var cm=S.media.chat;
  var prevBar=(cm&&cm.file)?'<div class="chat-prev">'+(cm.type==='image'?'<img src="'+esc(cm.previewUrl)+'" alt="">':'<span class="badge b">VIDEO</span>')+'<div style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(cm.name)+'</div><button type="button" class="btn gray sm" data-act="clrmedia" data-a="chat">✕</button></div>':'';
- return'<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn gray sm" data-act="rooms">← Salas</button><b>'+esc(S.room.nombre)+'</b></div><div class="msgs" id="msgs">'+msgsHtml()+'</div>'+prevBar+'<div class="row" style="margin-top:8px;align-items:center"><button type="button" class="btn gray sm" style="flex:none;min-height:44px;padding:0 12px" data-act="pickmedia" data-a="chat" aria-label="Subir foto o video a Drive">'+IC.cam+'</button><input id="cm" placeholder="Escribe un mensaje o pega enlace" style="margin:0;flex:4"><button class="btn sm" style="flex:1;min-height:44px" data-act="send">Enviar</button></div>'}
+ return'<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn gray sm" data-act="rooms">← Salas</button><b>'+esc(S.room.nombre)+'</b></div><div class="msgs" id="msgs">'+msgsHtml()+'</div>'+prevBar+'<div class="row" style="margin-top:8px;align-items:center"><button type="button" class="btn gray sm" style="flex:none;min-height:44px;padding:0 12px" data-act="pickmedia" data-a="chat" aria-label="Subir foto o video">'+IC.cam+'</button><input id="cm" placeholder="Escribe un mensaje o pega enlace" style="margin:0;flex:4"><button class="btn sm" style="flex:1;min-height:44px" data-act="send">Enviar</button></div>'}
 
 function msgsHtml(){return S.msgs.length?S.msgs.map(function(m){var own=m.email===S.session.email;return'<div class="msg '+(own?'me':'')+'"><small><b>'+esc(own?'Tú':m.nombre)+'</b> '+esc(m.etiqueta||'')+'</small>'+renderMedia(m.mediaUrl,m.mediaType,true,m.mediaViewUrl)+(m.texto?'<div>'+esc(m.texto)+'</div>':'')+'<small>'+(m.creado?new Date(m.creado).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'}):'')+'</small></div>'}).join(''):'<p class="mut">Aún no hay mensajes. Escribe el primero o envía una foto/video.</p>'}
 function loadMsgs(){if(!S.room)return;var id=S.room.id;fsList('chat_grupos/'+id+'/mensajes','orderBy=creado%20desc&pageSize=60').then(function(a){if(!S.room||S.room.id!==id)return;var n=a.reverse(),ch=JSON.stringify(n)!==JSON.stringify(S.msgs);S.msgs=n;var b=$('#msgs');if(b&&ch){var bot=b.scrollTop+b.clientHeight>=b.scrollHeight-40;b.innerHTML=msgsHtml();if(bot)b.scrollTop=b.scrollHeight}}).catch(function(){})}
@@ -685,7 +825,6 @@ function meView(){
   for(var k in H){if(typeof H[k]!=='boolean')continue;var key=/notif/i.test(k)?'notif':/dnd|disturb/i.test(k)?'dnd':/full/i.test(k)?'full':/batt|optim/i.test(k)?'batt':/install|unknown/i.test(k)?'inst':null;var ok=H[k];
    rows+='<div class="hl"><span class="led '+(ok?'g':'r')+'"></span><div style="flex:1">'+esc(key?LB[key][0]:k)+'</div>'+(!ok&&key?'<button class="btn sm gray" data-act="bridge" data-a="'+LB[key][1]+'">Abrir ajustes</button>':'')+'</div>'}}
  h+='<div class="card"><h2>Salud del teléfono</h2>'+(rows||'<p class="mut">Disponible solo dentro de la app instalada.</p>')+'<button class="btn gray sm" data-act="health" style="margin-top:8px">Revisar de nuevo</button></div>';
- h+='<div class="card"><h2>Token FCM</h2><div class="pre">'+esc(S.fcm||'Sin token todavía')+'</div><div class="row"><button class="btn gray sm" data-act="copy">Copiar</button><button class="btn gray sm" data-act="fcm">Actualizar</button></div></div>';
  if(isAdm())h+=adminView();
  return h}
 
@@ -768,10 +907,10 @@ var A={
  mode:function(a){S.mode=a;if(a==='reg')pushHist();render();if(a==='reg')subw()},
  login:doLogin,reg:doReg,logout:logout,
  tab:function(a){if(S.tab!==a){S.tabHist.push(S.tab);pushHist()}S.tab=a;if(a!=='chat'){S.room=null;clearMedia('chat')}if(a==='me'){S.health=brj('getHealth');loadWh()}if(a==='board')loadAll();render()},
- filter:function(a){S.filter=a;if(a==='Reporte')loadAll();render()},
+ filter:function(a){S.filter=a;render()},
  cancel:closeOv,ovclose:function(a,el,e){if(e.target===el)closeOv()},
  okc:function(){var f=S._ok;if(f)f();$('#ov').innerHTML=''},
- pickmedia:function(a){S.pickSlot=a||'emerg';$('#global-file').click()},
+ pickmedia:function(a){S.pickSlot=a||'emerg';var inp=$('#global-file');if(inp){inp.value='';inp.click()}},
  clrmedia:function(a){clearMedia(a);refreshMediaSlotUI(a)},
  viewimg:function(a,el){var v=el.getAttribute('data-v')||a;openModal('<img src="'+esc(a)+'" style="width:100%;border-radius:12px;display:block"><div class="row" style="margin-top:12px"><a class="btn" style="text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center" href="'+esc(v)+'" target="_blank" rel="noopener">Ver / Guardar en Drive</a><button class="btn gray" data-act="cancel">Cerrar</button></div>',true)},
  siren:function(){
@@ -779,21 +918,30 @@ var A={
   var scEl=$('#siren-scope'),scope=scEl?scEl.value:'indrhi_todos';
   var scopeTxt=scope==='indrhi_ed1'?'el Edificio ED1':scope==='indrhi_ed2'?'el Edificio ED2':'TODOS los teléfonos de la institución';
   confirmM('¿Activar sirena en '+scopeTxt+'?','Sonará la alarma roja al 100% en todos los teléfonos del área seleccionada. Úsala solo en una emergencia real.',function(){
-   var aid='alm_'+Date.now();
-   ls('indrhi.ackSirenId',aid);
-   br('testAlarm');
-   S.sirena=true;
-   var payload={activa:true,alertaId:aid,destino:scope,activadaPor:me().nombre||'',rol:tag(me()),actualizadoIso:new Date().toISOString()};
-   S.globalSiren=payload;
-   S.lastRemoteActive=true;
-   render();
-   fsSet('config/sirena',payload).then(function(){
-    toast('Sirena general activada en '+scopeTxt,'ok');
-    broadcastSirenPush(aid,scope);
-   }).catch(function(x){
-    toast('Sirena local activada, error al sincronizar: '+x.message,'err');
-   });
+   triggerSirenGlobal(scope);
   });
+ },
+ evacone:function(a){
+  if(!canSiren())return;
+  var sc=a==='indrhi_ed2'?'indrhi_ed2':'indrhi_ed1';
+  var lbl=sc==='indrhi_ed2'?'Edificio ED2':'Edificio ED1';
+  confirmM('¿Ordenar evacuación en '+lbl+'?','Se activará la sirena en todos los teléfonos del '+lbl+'.',function(){
+   triggerSirenGlobal(sc);
+  });
+ },
+ evacboth:function(){
+  if(!canSiren())return;
+  confirmM('¿Ordenar evacuación en AMBOS edificios?','Se activará la sirena en toda la institución.',function(){
+   triggerSirenGlobal('indrhi_todos');
+  });
+ },
+ ackinc:function(a){
+  fsSet('reportes/'+encodeURIComponent(a),{atendido:true,atendidoPor:me().nombre||'',atendidoIso:new Date().toISOString()},['atendido','atendidoPor','atendidoIso']).then(function(){
+   S.reports.forEach(function(r){if(r.id===a)r.atendido=true});
+   var q=queue();q.forEach(function(r){if(r.id===a)r.atendido=true});ls('indrhi.reportes',q);
+   toast('Incidente marcado como atendido','ok');
+   render();
+  }).catch(function(x){toast('No se pudo actualizar: '+x.message,'err')});
  },
  stopall:function(){
   if(!canSiren())return;
@@ -814,24 +962,54 @@ var A={
   render();
   toast('Sirena silenciada en este teléfono','ok');
  },
- quick:function(a){var s=a==='safe';confirmM(s?'¿Confirmas que estás a salvo?':'¿Confirmas que necesitas ayuda?','Se enviará un reporte con tu nombre y ubicación a Seguridad y Brigadas. Evita falsas alarmas.',function(){sendReport({tipo:s?'Estoy a salvo':'Necesito ayuda',lugar:me().ubicacion,estado:s?'A salvo':'Necesito ayuda'})},s?'green':'red',!s)},
- rstep:function(a){var R=S.R;if(R.step===0){R.tipo=a;R.step=1;pushHist()}else if(R.step===1){R.lugar=a;R.step=2;pushHist()}else{R.estado=a;confirmM('¿Enviar este reporte?',R.tipo+' · '+R.lugar+' · '+a,function(){var o={tipo:R.tipo,lugar:R.lugar,estado:R.estado};S.R={step:0};sendReport(o)},'blue',true);return}render()},
+ quick:function(a){
+  var s=a==='safe';
+  confirmM(
+   s?'¿Confirmas que estás a salvo?':'¿Confirmas emergencia personal?',
+   s?'Se registrará que estás a salvo.':'Se notificará al Dispensario Médico, Recursos Humanos y Jefe de Seguridad.',
+   function(){sendReport({tipo:s?'Estoy a salvo':'Necesito ayuda',lugar:me().ubicacion,estado:s?'A salvo':'Necesito ayuda'})},
+   s?'green':'red',
+   !s
+  );
+ },
+ rstep:function(a){
+  var R=S.R;
+  if(R.step===0){R.tipo=a;R.step=1;pushHist()}
+  else if(R.step===1){R.lugar=a;R.step=2;pushHist()}
+  else{
+   R.estado=a;
+   var cat=classifyIncident({tipo:R.tipo,estado:a});
+   var destMsg=cat==='estructural'
+    ?'Se notificará a Administración y Jefatura de Seguridad para decidir la evacuación.'
+    :cat==='varias'
+    ?'Emergencia de varias personas: se notificará a Dispensario Médico, RRHH y Seguridad.'
+    :'Emergencia de una persona: se notificará a Dispensario Médico, RRHH y Jefe de Seguridad.';
+   confirmM('¿Enviar reporte de '+R.tipo+'?',R.lugar+' · '+a+'. '+destMsg,function(){
+    var o={tipo:R.tipo,lugar:R.lugar,estado:R.estado};
+    S.R={step:0};
+    sendReport(o);
+   },'blue',true);
+   return;
+  }
+  render();
+ },
  rback:function(){S.R.step=Math.max(0,S.R.step-1);render()},
  upd:function(){if(S.updState==='ready'||S.updState==='permission_required')return br('installPendingUpdate');if(br('canInstallPackages')===false){toast('Permite instalar apps desconocidas y vuelve a tocar Actualizar');return br('openUnknownSourcesSettings')}br('downloadAndInstallUpdate',[S.ver.apkUrl]);toast('Descargando actualización…')},
  vote:function(a,el){var i=Number(el.getAttribute('data-i')),uid=S.session.uid,p=S.posts.filter(function(x){return x.id===a})[0];if(!p)return;
   var v=p.votos||{};v[uid]=i;p.votos=v;render();var f={};f[uid]={integerValue:String(i)};
   http('PATCH',FS+'/comunicados/'+a+'?updateMask.fieldPaths='+encodeURIComponent('votos.'+uid),{fields:{votos:{mapValue:{fields:f}}}},true).then(function(){toast('Voto registrado','ok')}).catch(function(){toast('No se pudo guardar el voto','err')})},
  pubform:function(){
+  if(!canPublishBoard())return toast('Solo Recursos Humanos puede publicar en el Tablón','err');
   var defTipo=TIPOS.indexOf(S.filter)>=0?S.filter:'Información';
   S.pollOpts=['',''];
   clearMedia('board');
-  openModal('<h2>Publicar comunicado</h2><label>Tipo</label><select id="p-tipo" data-chg="ptipo">'+TIPOS.map(function(t){return'<option'+(t===defTipo?' selected':'')+'>'+t+'</option>'}).join('')+'</select><label>Título o pregunta</label><input id="p-tit" placeholder="Escribe el título"><label>Descripción</label><textarea id="p-des" rows="2" placeholder="Detalles adicionales"></textarea>'+mediaPickerHtml('board','Subir foto o video a Drive (opcional)')+'<div id="p-ex"></div><label>Público destino</label><select id="p-dest">'+DEST.map(function(t){return'<option>'+t+'</option>'}).join('')+'</select><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn" data-act="publish">Publicar</button></div>');
+  openModal('<h2>Publicar novedad en Tablón</h2><label>Tipo</label><select id="p-tipo" data-chg="ptipo">'+TIPOS.map(function(t){return'<option'+(t===defTipo?' selected':'')+'>'+t+'</option>'}).join('')+'</select><label>Título o pregunta</label><input id="p-tit" placeholder="Escribe el título"><label>Descripción</label><textarea id="p-des" rows="2" placeholder="Detalles adicionales"></textarea>'+mediaPickerHtml('board','Subir foto o video (opcional)')+'<div id="p-ex"></div><label>Público destino</label><select id="p-dest">'+DEST.map(function(t){return'<option>'+t+'</option>'}).join('')+'</select><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn" data-act="publish">Publicar</button></div>');
   ptipo();
  },
  addopt:function(){syncPollInputs();S.pollOpts.push('');renderPollBuilder()},
  delopt:function(a){syncPollInputs();S.pollOpts.splice(Number(a),1);renderPollBuilder()},
  publish:function(){
-  if(S.busy)return;
+  if(S.busy||!canPublishBoard())return;
   var t=$('#p-tipo').value,o={tipo:t,titulo:$('#p-tit').value.trim(),descripcion:$('#p-des').value.trim(),destino:$('#p-dest').value,autor:me().nombre,autorEmail:S.session.email,creado:new Date().toISOString()};
   if(!o.titulo)return toast('Escribe un título o pregunta','err');
   if(t==='Curso'||t==='Reunión'){o.fecha=$('#p-fec')?$('#p-fec').value:'';o.enlace=$('#p-lnk')?$('#p-lnk').value.trim():''}
@@ -882,8 +1060,6 @@ var A={
  mkgroup:function(){var n=$('#g-n').value.trim(),m=[].slice.call(document.querySelectorAll('.gm:checked')).map(function(c){return c.value});if(!n)return toast('Ponle nombre al grupo','err');if(!m.length)return toast('Elige al menos un integrante','err');m.push(S.session.email);
   var id='g'+Date.now();fsAdd('chat_grupos',{nombre:n,miembros:m,creador:S.session.email,creado:new Date().toISOString()},id).then(function(){closeOv();toast('Grupo creado','ok');return fsList('chat_grupos','pageSize=100')}).then(function(a){S.groups=a;render()}).catch(function(x){toast('No se pudo crear: '+x.message,'err')})},
  bridge:function(a){br(a)},health:function(){S.health=brj('getHealth');render()},
- copy:function(){if(!S.fcm)return toast('Aún no hay token');(navigator.clipboard?navigator.clipboard.writeText(S.fcm):Promise.reject()).then(function(){toast('Token copiado','ok')}).catch(function(){toast('No se pudo copiar','err')})},
- fcm:function(){var t=readToken();render();toast(t?'Token actualizado':'Sin token disponible')},
  saverole:function(a){
   var cEl=document.querySelector('[data-combo-for="'+a+'"]');
   if(!cEl)return;
