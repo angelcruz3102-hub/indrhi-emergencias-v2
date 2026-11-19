@@ -99,6 +99,7 @@
   .btn-safe { background: var(--verde); }
   .btn-help { background: #B71C1C; }
   .btn-secondary { background: #555555; }
+  .btn-primary-dark { background: #1565C0; }
   .btn-small { min-height: 44px; font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; }
 
   .card {
@@ -108,7 +109,29 @@
     padding: 12px;
     margin: 12px 0;
   }
-  .card h2 { margin-top: 0; }
+  .card-neutral {
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 12px 0;
+  }
+  .card h2, .card-neutral h2 { margin-top: 0; }
+
+  .field-group { margin-bottom: 10px; }
+  .field-group label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
+  .field-group input, .field-group select {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    background: var(--gris-fondo);
+    color: var(--gris-texto);
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
+
   .step-label { font-size: 0.9rem; margin: 10px 0 6px; font-weight: 700; }
   .step-value { color: var(--rojo); font-weight: 700; }
   .step-buttons { display: grid; gap: 8px; }
@@ -120,13 +143,24 @@
     border-left: 4px solid #F9A825;
     padding: 10px 12px;
     border-radius: 6px;
-    font-size: 0.88rem;
+    font-size: 0.86rem;
     margin: 12px 0;
     color: #6D4C00;
     line-height: 1.35;
   }
+  .notice-ok {
+    background: #E8F5E9;
+    border-left: 4px solid var(--verde);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 0.86rem;
+    margin: 10px 0;
+    color: #1B5E20;
+    line-height: 1.35;
+  }
   @media (prefers-color-scheme: dark) {
     .notice { background: #2A2410; color: #F9E7A0; }
+    .notice-ok { background: #142B17; color: #A5D6A7; }
     .banner { background: #2A2410; color: #F9E7A0; }
   }
 
@@ -191,6 +225,8 @@
     margin: 6px 0;
   }
   .report-item .meta { color: var(--detalle); font-size: 0.78rem; margin-top: 4px; }
+  .badge-sync { color: var(--verde); font-weight: 700; }
+  .badge-pending { color: #E65100; font-weight: 700; }
 
   footer { text-align: center; font-size: 0.8rem; color: var(--detalle); margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--borde); }
 </style>
@@ -198,7 +234,7 @@
 <body>
   <header>
     <h1>INDRHI Emergencias</h1>
-    <div class="sub">Sirena de evacuación al 100% por canal de alarma</div>
+    <div class="sub">Sirena de evacuación al 100% · Sincronización en nube</div>
   </header>
 
   <div class="banner" id="previewBanner">Modo vista previa: sin puente nativo. Los controles de sirena y ajustes no funcionarán aquí.</div>
@@ -239,11 +275,39 @@
       <button class="btn" type="button" data-estado="Hay heridos">Hay heridos</button>
     </div>
 
-    <div class="notice">
-      Guardado en este teléfono. Aún NO se envía a ningún servidor (llegará en la Fase 2).
+    <div class="notice-ok" id="cloudSyncStatus">
+      Conectado a Firestore (indrhi-emergencias). Los reportes se guardan localmente y se envían automáticamente.
     </div>
     <button class="btn btn-secondary btn-small btn-block" id="btnResetReport" type="button" style="margin-top:8px">Reiniciar selección</button>
   </div>
+
+  <div class="card-neutral">
+    <h2>Identificación del colaborador</h2>
+    <div class="field-group">
+      <label for="inpNombre">Nombre completo</label>
+      <input type="text" id="inpNombre" placeholder="Ej. Angel Feliz">
+    </div>
+    <div class="field-group">
+      <label for="inpCorreo">Correo institucional (@indrhi.gob.do)</label>
+      <input type="email" id="inpCorreo" placeholder="Ej. ajfeliz@indrhi.gob.do">
+    </div>
+    <div class="field-group">
+      <label for="selEdificioPerfil">Ubicación habitual</label>
+      <select id="selEdificioPerfil">
+        <option value="Edificio ED1">Edificio ED1</option>
+        <option value="Edificio ED2">Edificio ED2</option>
+        <option value="Exterior">Exterior / Regional</option>
+      </select>
+    </div>
+    <button class="btn btn-primary-dark btn-small btn-block" id="btnSaveProfile" type="button">Guardar datos y vincular dispositivo</button>
+    <div class="detail" id="profileSyncMsg" style="font-size:0.8rem;margin-top:6px;color:var(--detalle)"></div>
+  </div>
+
+  <h2>Reportes recientes</h2>
+  <div style="display:grid;margin-bottom:8px">
+    <button class="btn btn-secondary btn-small" id="btnSyncNow" type="button">Sincronizar pendientes ahora</button>
+  </div>
+  <div class="reports-list" id="reportsList"></div>
 
   <h2>Panel de salud de permisos</h2>
   <div class="health-summary" id="healthSummary">
@@ -255,7 +319,7 @@
     <button class="btn btn-secondary" id="btnRefreshHealth" type="button">Actualizar</button>
   </div>
 
-  <h2>Token FCM (solo local)</h2>
+  <h2>Token FCM y canales de alerta</h2>
   <div class="health-row">
     <span class="icon" id="fcmStatusIcon">ℹ</span>
     <div class="info">
@@ -268,25 +332,25 @@
     <button class="btn btn-secondary btn-small" id="btnRefreshFcm" type="button">Actualizar token</button>
     <button class="btn btn-secondary btn-small" id="btnCopyFcm" type="button">Copiar token</button>
   </div>
-  <div class="notice">
-    El token se guarda SOLO en este teléfono (localStorage). NO se envía a ningún servidor (llegará en la Fase 2). Úsalo para enviar un push de prueba desde la consola de Firebase.
-  </div>
 
-  <h2>Reportes guardados en este teléfono</h2>
-  <div class="reports-list" id="reportsList"></div>
-  <div class="notice">Estos reportes se guardan localmente. NO se envían a ningún servidor hasta la Fase 2.</div>
-
-  <footer>INDRHI Emergencias · v1.0.0 · Fase 2A</footer>
+  <footer>INDRHI Emergencias · v1.0.0 · Fase 3 (Cloud Firestore)</footer>
 
 <script>
 (function () {
   'use strict';
 
+  var FIREBASE_PROJECT_ID = 'indrhi-emergencias';
+  var FIRESTORE_BASE_URL = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT_ID + '/databases/(default)/documents';
+
   var STORAGE_KEY = 'indrhi.reportes';
   var FCM_STORAGE_KEY = 'indrhi.fcmToken';
+  var PROFILE_STORAGE_KEY = 'indrhi.perfil';
+  var DEVICE_ID_KEY = 'indrhi.deviceId';
   var MAX_REPORTS = 50;
+
   var sirenPollTimer = null;
   var tripleSelection = { tipo: null, lugar: null, estado: null };
+  var isSyncing = false;
 
   function getBridge() {
     return (typeof window !== 'undefined' && window.IndrhiBridge) ? window.IndrhiBridge : null;
@@ -298,7 +362,16 @@
     try {
       return bridge[methodName]();
     } catch (e) {
-      if (window.console && console.warn) console.warn('Fallo llamando a ' + methodName + ':', e);
+      return fallback;
+    }
+  }
+
+  function safeCallArg(methodName, arg, fallback) {
+    var bridge = getBridge();
+    if (!bridge || typeof bridge[methodName] !== 'function') return fallback;
+    try {
+      return bridge[methodName](arg);
+    } catch (e) {
       return fallback;
     }
   }
@@ -320,6 +393,115 @@
     if (!getBridge()) {
       document.getElementById('previewBanner').classList.add('visible');
     }
+  }
+
+  function getDeviceId() {
+    var id = '';
+    try { id = localStorage.getItem(DEVICE_ID_KEY) || ''; } catch (e) {}
+    if (!id) {
+      id = 'dev-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
+      try { localStorage.setItem(DEVICE_ID_KEY, id); } catch (e) {}
+    }
+    return id;
+  }
+
+  // ---------- Perfil y Topics ----------
+  function loadProfile() {
+    try {
+      var raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+      if (!raw) return { nombre: '', correo: '', edificio: 'Edificio ED1' };
+      var obj = JSON.parse(raw);
+      return {
+        nombre: obj.nombre || '',
+        correo: obj.correo || '',
+        edificio: obj.edificio || 'Edificio ED1'
+      };
+    } catch (e) {
+      return { nombre: '', correo: '', edificio: 'Edificio ED1' };
+    }
+  }
+
+  function topicForEdificio(edificio) {
+    if (edificio === 'Edificio ED1') return 'indrhi_ed1';
+    if (edificio === 'Edificio ED2') return 'indrhi_ed2';
+    return 'indrhi_exterior';
+  }
+
+  function applyTopicSubscriptions(edificio) {
+    safeCallArg('subscribeTopic', 'indrhi_todos', null);
+    var allEdificios = ['indrhi_ed1', 'indrhi_ed2', 'indrhi_exterior'];
+    var target = topicForEdificio(edificio);
+    for (var i = 0; i < allEdificios.length; i++) {
+      if (allEdificios[i] === target) {
+        safeCallArg('subscribeTopic', allEdificios[i], null);
+      } else {
+        safeCallArg('unsubscribeTopic', allEdificios[i], null);
+      }
+    }
+  }
+
+  function registerDeviceInFirestore(profile, token) {
+    var msgEl = document.getElementById('profileSyncMsg');
+    if (!token) {
+      if (msgEl) msgEl.textContent = 'Perfil guardado localmente. Esperando token FCM para vincular en la nube...';
+      return;
+    }
+    var devId = getDeviceId();
+    var ctx = parseJson(safeCall('getContext', null)) || {};
+    var deviceModel = ((ctx.manufacturer || '') + ' ' + (ctx.model || '')).trim() || 'Android';
+
+    var payload = {
+      fields: {
+        deviceId: { stringValue: devId },
+        nombre: { stringValue: profile.nombre || 'Sin nombre' },
+        correo: { stringValue: profile.correo || '' },
+        edificio: { stringValue: profile.edificio || 'Edificio ED1' },
+        topicEdificio: { stringValue: topicForEdificio(profile.edificio) },
+        fcmToken: { stringValue: token },
+        modelo: { stringValue: deviceModel },
+        versionApp: { stringValue: String(ctx.versionName || '1.0.0') },
+        actualizadoIso: { stringValue: new Date().toISOString() }
+      }
+    };
+
+    fetch(FIRESTORE_BASE_URL + '/dispositivos/' + encodeURIComponent(devId), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      if (res.ok) {
+        if (msgEl) msgEl.textContent = '✔ Vinculado en la nube (canales: indrhi_todos + ' + topicForEdificio(profile.edificio) + ').';
+      } else {
+        if (msgEl) msgEl.textContent = 'Guardado localmente (HTTP ' + res.status + ' al vincular con Firestore).';
+      }
+    }).catch(function () {
+      if (msgEl) msgEl.textContent = 'Guardado localmente (sin conexión a Internet para vincular ahora).';
+    });
+  }
+
+  function saveProfile() {
+    var nombre = document.getElementById('inpNombre').value.trim();
+    var correo = document.getElementById('inpCorreo').value.trim().toLowerCase();
+    var edificio = document.getElementById('selEdificioPerfil').value;
+
+    if (correo && correo.indexOf('@') === -1) {
+      window.alert('Por favor escribe un correo electrónico válido.');
+      return;
+    }
+
+    var profile = { nombre: nombre, correo: correo, edificio: edificio };
+    try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile)); } catch (e) {}
+
+    applyTopicSubscriptions(edificio);
+    registerDeviceInFirestore(profile, loadStoredFcmToken());
+    window.alert('Datos guardados y canales de alerta actualizados.');
+  }
+
+  function renderProfileForm() {
+    var p = loadProfile();
+    document.getElementById('inpNombre').value = p.nombre;
+    document.getElementById('inpCorreo').value = p.correo;
+    document.getElementById('selEdificioPerfil').value = p.edificio;
   }
 
   // ---------- Sirena ----------
@@ -363,7 +545,7 @@
     updateSirenStatus(false);
   }
 
-  // ---------- Reportes ----------
+  // ---------- Reportes y Sincronización Firestore ----------
   function readReports() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -381,6 +563,96 @@
     } catch (e) { return list; }
   }
 
+  function sendSingleReportToFirestore(report) {
+    var p = loadProfile();
+    var ctx = report.contexto || {};
+    var deviceModel = ((ctx.manufacturer || '') + ' ' + (ctx.model || '')).trim() || 'Android';
+
+    var payload = {
+      fields: {
+        id: { stringValue: String(report.id) },
+        tipo: { stringValue: String(report.tipo || 'No especificado') },
+        lugar: { stringValue: String(report.lugar || 'No especificado') },
+        estado: { stringValue: String(report.estado || '') },
+        nombre: { stringValue: String(p.nombre || 'Anónimo') },
+        correo: { stringValue: String(p.correo || '') },
+        edificioAsignado: { stringValue: String(p.edificio || '') },
+        fcmToken: { stringValue: String(loadStoredFcmToken() || '') },
+        deviceId: { stringValue: getDeviceId() },
+        dispositivo: { stringValue: deviceModel },
+        fechaIso: { stringValue: String(report.fechaIso || new Date().toISOString()) }
+      }
+    };
+
+    return fetch(FIRESTORE_BASE_URL + '/reportes/' + encodeURIComponent(report.id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      return res.ok;
+    }).catch(function () {
+      return false;
+    });
+  }
+
+  function syncPendingReports() {
+    if (isSyncing) return;
+    var list = readReports();
+    var pendingIndexes = [];
+    for (var i = 0; i < list.length; i++) {
+      if (!list[i].enviado) pendingIndexes.push(i);
+    }
+    if (!pendingIndexes.length) {
+      updateCloudStatusBanner(true, 0);
+      return;
+    }
+
+    isSyncing = true;
+    var chain = Promise.resolve();
+    pendingIndexes.forEach(function (idx) {
+      chain = chain.then(function () {
+        var currentList = readReports();
+        var item = currentList[idx];
+        if (!item || item.enviado) return;
+        return sendSingleReportToFirestore(item).then(function (ok) {
+          if (ok) {
+            var updated = readReports();
+            if (updated[idx] && updated[idx].id === item.id) {
+              updated[idx].enviado = true;
+              writeReports(updated);
+            }
+          }
+        });
+      });
+    });
+
+    chain.then(function () {
+      isSyncing = false;
+      var finalList = readReports();
+      var remaining = 0;
+      for (var j = 0; j < finalList.length; j++) {
+        if (!finalList[j].enviado) remaining++;
+      }
+      updateCloudStatusBanner(remaining === 0, remaining);
+      renderReports();
+    }).catch(function () {
+      isSyncing = false;
+      renderReports();
+    });
+  }
+
+  function updateCloudStatusBanner(allSynced, pendingCount) {
+    var el = document.getElementById('cloudSyncStatus');
+    if (!el) return;
+    if (allSynced) {
+      el.className = 'notice-ok';
+      el.textContent = '✔ Todos los reportes están sincronizados con Cloud Firestore.';
+    } else {
+      el.className = 'notice';
+      el.textContent = '⏳ ' + pendingCount + ' reporte(s) guardados en el teléfono pendientes por conexión a Internet.';
+    }
+  }
+
   function addReport(tipo, lugar, estado) {
     var ctx = parseJson(safeCall('getContext', null)) || {};
     var report = {
@@ -396,6 +668,7 @@
     list.unshift(report);
     writeReports(list);
     renderReports();
+    syncPendingReports();
     return report;
   }
 
@@ -403,7 +676,7 @@
     var cont = document.getElementById('reportsList');
     var list = readReports();
     if (!list.length) {
-      cont.innerHTML = '<div style="padding:8px;color:#777">Aún no hay reportes en este teléfono.</div>';
+      cont.innerHTML = '<div style="padding:8px;color:#777">Aún no hay reportes registrados.</div>';
       return;
     }
     var html = '';
@@ -411,9 +684,12 @@
       var r = list[i];
       var fecha = '';
       try { fecha = new Date(r.fechaIso).toLocaleString('es-DO'); } catch (e) { fecha = r.fechaIso || ''; }
+      var syncBadge = r.enviado
+        ? '<span class="badge-sync">✔ Enviado a nube</span>'
+        : '<span class="badge-pending">⏳ Pendiente de red</span>';
       html += '<div class="report-item">';
       html += '<div><strong>' + escapeHtml(r.tipo) + '</strong> · ' + escapeHtml(r.lugar) + ' · ' + escapeHtml(r.estado) + '</div>';
-      html += '<div class="meta">' + escapeHtml(fecha) + ' · Guardado en este teléfono · NO enviado</div>';
+      html += '<div class="meta">' + escapeHtml(fecha) + ' · ' + syncBadge + '</div>';
       html += '</div>';
     }
     cont.innerHTML = html;
@@ -454,19 +730,21 @@
     document.getElementById('stepEstado').classList.add('step-hidden');
     if (tripleSelection.tipo && tripleSelection.lugar) {
       addReport(tripleSelection.tipo, tripleSelection.lugar, estado);
-      window.alert('Reporte guardado en este teléfono. Aún NO se envía a ningún servidor (llegará en la Fase 2).');
+      window.alert('Reporte registrado y enviándose a la central del INDRHI.');
       resetTriple();
     }
   }
 
   function onSafe() {
-    addReport('No especificado', 'No especificado', 'A salvo');
-    window.alert('Estado "A salvo" guardado en este teléfono. Aún NO se envía a ningún servidor (llegará en la Fase 2).');
+    var p = loadProfile();
+    addReport('Reporte directo', p.edificio || 'No especificado', 'A salvo');
+    window.alert('Estado "A salvo" registrado y enviándose a la central.');
   }
 
   function onHelp() {
-    addReport('No especificado', 'No especificado', 'Necesito ayuda');
-    window.alert('Estado "Necesito ayuda" guardado en este teléfono. Aún NO se envía a ningún servidor (llegará en la Fase 2).');
+    var p = loadProfile();
+    addReport('Solicitud de auxilio', p.edificio || 'No especificado', 'Necesito ayuda');
+    window.alert('Solicitud "Necesito ayuda" registrada y enviándose a la central.');
   }
 
   // ---------- Panel de salud ----------
@@ -526,7 +804,6 @@
     document.getElementById('healthSummaryText').textContent = summaryText;
 
     var rows = '';
-
     rows += healthRow(
       notifOk,
       'Notificaciones',
@@ -587,13 +864,14 @@
     var detail = document.getElementById('fcmStatusDetail');
     var code = document.getElementById('fcmTokenValue');
     var icon = document.getElementById('fcmStatusIcon');
+    var p = loadProfile();
     if (token) {
-      detail.textContent = 'Token disponible y guardado solo en este teléfono.';
+      detail.textContent = 'Activo · Suscrito a: indrhi_todos, ' + topicForEdificio(p.edificio);
       icon.textContent = '✔';
       icon.style.color = '#2E7D32';
       code.textContent = token;
     } else {
-      detail.textContent = 'Token aún no disponible. Abre la app con conexión a Internet o pulsa "Actualizar token".';
+      detail.textContent = 'Token aún no disponible. Pulsa "Actualizar token".';
       icon.textContent = '✖';
       icon.style.color = '#C62828';
       code.textContent = '(sin token)';
@@ -602,13 +880,14 @@
 
   function refreshFcmToken() {
     var res = parseJson(safeCall('getFcmToken', null));
-    if (res && res.ok && res.token) {
-      saveFcmToken(res.token);
-      renderFcmPanel(res.token);
-    } else {
-      var stored = loadStoredFcmToken();
-      renderFcmPanel(stored || '');
+    var token = (res && res.ok && res.token) ? res.token : loadStoredFcmToken();
+    if (token) {
+      saveFcmToken(token);
+      var p = loadProfile();
+      applyTopicSubscriptions(p.edificio);
+      registerDeviceInFirestore(p, token);
     }
+    renderFcmPanel(token || '');
   }
 
   function copyFcmToken() {
@@ -625,9 +904,9 @@
         ta.select();
         var ok = document.execCommand('copy');
         document.body.removeChild(ta);
-        if (ok) done(); else window.alert('No se pudo copiar automáticamente. Mantén pulsado el token para copiarlo manualmente.');
+        if (ok) done(); else window.alert('Mantén pulsado el token para copiarlo manualmente.');
       } catch (e) {
-        window.alert('No se pudo copiar automáticamente. Mantén pulsado el token para copiarlo manualmente.');
+        window.alert('Mantén pulsado el token para copiarlo manualmente.');
       }
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -640,11 +919,12 @@
   window.onFcmToken = function (token) {
     if (!token) return;
     saveFcmToken(token);
+    var p = loadProfile();
+    applyTopicSubscriptions(p.edificio);
+    registerDeviceInFirestore(p, token);
     renderFcmPanel(token);
-    if (window.console && console.log) console.log('[FCM] Token recibido del nativo');
   };
 
-  // ---------- Exponer refreshHealth global ----------
   window.refreshHealth = refreshHealth;
 
   // ---------- Arranque ----------
@@ -656,6 +936,8 @@
     document.getElementById('btnSafe').addEventListener('click', onSafe);
     document.getElementById('btnHelp').addEventListener('click', onHelp);
     document.getElementById('btnResetReport').addEventListener('click', resetTriple);
+    document.getElementById('btnSaveProfile').addEventListener('click', saveProfile);
+    document.getElementById('btnSyncNow').addEventListener('click', syncPendingReports);
     document.getElementById('btnRefreshHealth').addEventListener('click', refreshHealth);
     document.getElementById('healthRows').addEventListener('click', onHealthRowsClick);
     document.getElementById('btnRefreshFcm').addEventListener('click', refreshFcmToken);
@@ -679,14 +961,19 @@
         refreshHealth();
         refreshFcmToken();
         pollSiren();
+        syncPendingReports();
       }
     });
 
+    window.addEventListener('online', syncPendingReports);
+
+    renderProfileForm();
     resetTriple();
     renderReports();
     refreshHealth();
     renderFcmPanel(loadStoredFcmToken());
     refreshFcmToken();
+    syncPendingReports();
     startSirenPoll();
   }
 
