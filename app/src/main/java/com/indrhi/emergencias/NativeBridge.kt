@@ -31,6 +31,38 @@ class NativeBridge(private val activity: Activity) {
     private var isDownloadingUpdate: Boolean = false
 
     @JavascriptInterface
+    fun saveAuthSession(sessionJson: String): Boolean {
+        return try {
+            val prefs = activity.applicationContext.getSharedPreferences("indrhi_auth_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("session_json", sessionJson).apply()
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    @JavascriptInterface
+    fun getAuthSession(): String {
+        return try {
+            val prefs = activity.applicationContext.getSharedPreferences("indrhi_auth_prefs", Context.MODE_PRIVATE)
+            prefs.getString("session_json", "") ?: ""
+        } catch (_: Throwable) {
+            ""
+        }
+    }
+
+    @JavascriptInterface
+    fun clearAuthSession(): Boolean {
+        return try {
+            val prefs = activity.applicationContext.getSharedPreferences("indrhi_auth_prefs", Context.MODE_PRIVATE)
+            prefs.edit().remove("session_json").apply()
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    @JavascriptInterface
     fun testAlarm(): String {
         return try {
             SirenForegroundService.startSiren(
