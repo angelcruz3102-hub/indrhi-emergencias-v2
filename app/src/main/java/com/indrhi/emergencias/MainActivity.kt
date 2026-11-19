@@ -3,6 +3,7 @@ package com.indrhi.emergencias
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -10,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import android.webkit.GeolocationPermissions
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -18,6 +20,7 @@ import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
@@ -31,6 +34,16 @@ class MainActivity : AppCompatActivity() {
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingCameraUri: Uri? = null
+
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        launchMediaChooser()
+    }
+
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { }
 
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -99,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         with(createdWebView.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
+            setGeolocationEnabled(true)
             allowFileAccess = true
             allowContentAccess = true
             allowFileAccessFromFileURLs = false
@@ -139,6 +153,25 @@ class MainActivity : AppCompatActivity() {
         }
 
         createdWebView.webChromeClient = object : WebChromeClient() {
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?,
+                callback: GeolocationPermissions.Callback?
+            ) {
+                if (ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                }
+                callback?.invoke(origin, true, false)
+            }
+
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -148,55 +181,16 @@ class MainActivity : AppCompatActivity() {
                 this@MainActivity.filePathCallback = filePathCallback
                 pendingCameraUri = null
 
-                val galleryIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
-                    putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
-                }
-
-                val extraIntents = ArrayList<Intent>()
-                try {
-                    val photoFile = File(cacheDir, "cam_${System.currentTimeMillis()}.jpg")
-                    val photoUri = FileProvider.getUriForFile(
+                if (ContextCompat.checkSelfPermission(
                         this@MainActivity,
-                        "$packageName.fileprovider",
-                        photoFile
-                    )
-                    val camIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
-                        putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
-                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    pendingCameraUri = photoUri
-                    extraIntents.add(camIntent)
-                } catch (t: Throwable) {
-                    Log.w(TAG, "FileProvider no disponible para cámara directa", t)
-                    pendingCameraUri = null
-                    extraIntents.add(Intent(MediaStore.ACTION_IMAGE_CAPTURE))
+                        Manifest.permission.CAMERA
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                } else {
+                    launchMediaChooser()
                 }
-
-                extraIntents.add(Intent(MediaStore.ACTION_VIDEO_CAPTURE).apply {
-                    putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)
-                })
-
-                return try {
-                    val chooser = Intent(Intent.ACTION_CHOOSER).apply {
-                        putExtra(Intent.EXTRA_INTENT, galleryIntent)
-                        putExtra(Intent.EXTRA_TITLE, "Tomar o seleccionar foto / video")
-                        putExtra(Intent.EXTRA_INITIAL_INTENTS, extraIntents.toTypedArray())
-                    }
-                    fileChooserLauncher.launch(chooser)
-                    true
-                } catch (t: Throwable) {
-                    Log.e(TAG, "Fallback selector simple", t)
-                    try {
-                        fileChooserLauncher.launch(galleryIntent)
-                        true
-                    } catch (e2: Throwable) {
-                        this@MainActivity.filePathCallback = null
-                        filePathCallback?.onReceiveValue(null)
-                        false
-                    }
-                }
+                return true
             }
         }
 
@@ -228,6 +222,73 @@ class MainActivity : AppCompatActivity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             postNotificationsLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun launchMediaChooser() {
+        val galleryIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+        }
+
+        val extraIntents = ArrayList<Intent>()
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            try {
+                val photoFile = File(cacheDir, "cam_${System.currentTimeMillis()}.jpg")
+                val photoUri = FileProvider.getUriForFile(
+                    this,
+                    "$packageName.fileprovider",
+                    photoFile
+                )
+                val camIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                    putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+                    clipData = ClipData.newRawUri("", photoUri)
+                    addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                val resInfos = packageManager.queryIntentActivities(camIntent, PackageManager.MATCH_DEFAULT_ONLY)
+                for (info in resInfos) {
+                    grantUriPermission(
+                        info.activityInfo.packageName,
+                        photoUri,
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+                pendingCameraUri = photoUri
+                extraIntents.add(camIntent)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Error preparando captura de foto", t)
+                pendingCameraUri = null
+            }
+
+            try {
+                val vidIntent = Intent(MediaStore.ACTION_VIDEO_CAPTURE).apply {
+                    putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)
+                }
+                extraIntents.add(vidIntent)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Error preparando captura de video", t)
+            }
+        }
+
+        try {
+            val chooser = Intent(Intent.ACTION_CHOOSER).apply {
+                putExtra(Intent.EXTRA_INTENT, galleryIntent)
+                putExtra(Intent.EXTRA_TITLE, "Cámara o Galería (Foto / Video)")
+                if (extraIntents.isNotEmpty()) {
+                    putExtra(Intent.EXTRA_INITIAL_INTENTS, extraIntents.toTypedArray())
+                }
+            }
+            fileChooserLauncher.launch(chooser)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Fallback galería", t)
+            try {
+                fileChooserLauncher.launch(galleryIntent)
+            } catch (e2: Throwable) {
+                filePathCallback?.onReceiveValue(null)
+                filePathCallback = null
+            }
         }
     }
 
