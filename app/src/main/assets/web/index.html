@@ -1,1667 +1,309 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
+<html lang="es"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>INDRHI Emergencias</title>
 <style>
-  :root {
-    --rojo: #C62828;
-    --rojo-oscuro: #7F0000;
-    --azul: #1565C0;
-    --blanco: #FFFFFF;
-    --negro: #000000;
-    --gris-fondo: #F2F2F2;
-    --gris-texto: #222222;
-    --verde: #2E7D32;
-    --amarillo: #F9A825;
-    --borde: #CCCCCC;
-    --tarjeta: #FFFFFF;
-    --detalle: #666666;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --gris-fondo: #121212;
-      --gris-texto: #EEEEEE;
-      --blanco: #1E1E1E;
-      --negro: #FFFFFF;
-      --borde: #333333;
-      --tarjeta: #1F1F1F;
-      --detalle: #AAAAAA;
-    }
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: rgba(198,40,40,0.3); }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: var(--gris-fondo);
-    color: var(--gris-texto);
-    padding: env(safe-area-inset-top) 12px calc(24px + env(safe-area-inset-bottom)) 12px;
-    min-height: 100vh;
-    font-size: 16px;
-    line-height: 1.4;
-  }
-  h1 { font-size: 1.35rem; margin: 0 0 4px; }
-  h2 { font-size: 1.08rem; margin: 20px 0 8px; }
-  header { text-align: center; padding: 10px 0; border-bottom: 3px solid var(--rojo); margin-bottom: 8px; }
-  header h1 { color: var(--rojo); }
-  header .sub { font-size: 0.82rem; color: var(--detalle); }
-  .banner {
-    display: none;
-    background: #FFF3E0;
-    color: #6D4C00;
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin: 10px 0;
-    border: 1px solid #F9A825;
-    font-size: 0.9rem;
-  }
-  .banner.visible { display: block; }
-  .hidden { display: none !important; }
-
-  .update-card {
-    background: #E3F2FD;
-    border: 2px solid var(--azul);
-    border-radius: 12px;
-    padding: 12px;
-    margin: 10px 0;
-    color: #0D47A1;
-  }
-  @media (prefers-color-scheme: dark) {
-    .update-card { background: #10253E; color: #BBDEFB; }
-  }
-  .update-title { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
-  .update-notes { font-size: 0.85rem; margin-bottom: 10px; }
-
-  .session-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    background: var(--tarjeta);
-    border: 1px solid var(--borde);
-    border-radius: 10px;
-    padding: 10px 12px;
-    margin: 10px 0;
-    font-size: 0.85rem;
-  }
-  .session-info { min-width: 0; flex: 1; }
-  .session-email { font-weight: 700; word-break: break-all; }
-  .role-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 0.74rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-top: 3px;
-    background: #E3F2FD;
-    color: #0D47A1;
-  }
-  .role-badge.admin { background: #FFEBEE; color: #B71C1C; }
-  .role-badge.brigadista { background: #FFF3E0; color: #E65100; }
-
-  .siren-status {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    background: var(--tarjeta);
-    border: 1px solid var(--borde);
-    border-radius: 10px;
-    margin: 12px 0;
-    font-weight: 700;
-    font-size: 1rem;
-  }
-  .siren-status .dot {
-    width: 16px; height: 16px; border-radius: 50%;
-    background: #999;
-    flex-shrink: 0;
-  }
-  .siren-status.active { border-color: var(--rojo); }
-  .siren-status.active .dot { background: var(--rojo); animation: pulse 0.8s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-  .grid-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 16px; }
-  .btn {
-    min-height: 56px;
-    border: none;
-    border-radius: 10px;
-    font-size: 1rem;
-    font-weight: 700;
-    cursor: pointer;
-    padding: 10px 12px;
-    color: #FFFFFF;
-    background: var(--rojo);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.18);
-    transition: transform 0.05s ease;
-    font-family: inherit;
-  }
-  .btn:active { transform: scale(0.97); }
-  .btn-block { width: 100%; }
-  .btn-danger { background: var(--rojo); grid-column: span 2; font-size: 1.12rem; }
-  .btn-stop { background: var(--rojo-oscuro); grid-column: span 2; font-size: 1.12rem; }
-  .btn-safe { background: var(--verde); }
-  .btn-help { background: #B71C1C; }
-  .btn-secondary { background: #555555; }
-  .btn-primary-dark { background: var(--azul); }
-  .btn-small { min-height: 42px; font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; }
-
-  .tab-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-  .tab-btn {
-    min-height: 40px;
-    border: 1px solid var(--borde);
-    border-radius: 8px;
-    background: var(--gris-fondo);
-    color: var(--gris-texto);
-    font-weight: 700;
-    font-size: 0.88rem;
-    cursor: pointer;
-  }
-  .tab-btn.active { background: var(--azul); color: #FFFFFF; border-color: var(--azul); }
-
-  .card {
-    background: var(--tarjeta);
-    border: 2px solid var(--rojo);
-    border-radius: 12px;
-    padding: 12px;
-    margin: 12px 0;
-  }
-  .card-auth {
-    background: var(--tarjeta);
-    border: 2px solid var(--azul);
-    border-radius: 12px;
-    padding: 12px;
-    margin: 12px 0;
-  }
-  .card-neutral {
-    background: var(--tarjeta);
-    border: 1px solid var(--borde);
-    border-radius: 12px;
-    padding: 12px;
-    margin: 12px 0;
-  }
-  .card h2, .card-auth h2, .card-neutral h2 { margin-top: 0; }
-
-  .field-group { margin-bottom: 10px; }
-  .field-group label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
-  .field-group input, .field-group select {
-    width: 100%;
-    min-height: 44px;
-    padding: 8px 10px;
-    border: 1px solid var(--borde);
-    border-radius: 8px;
-    background: var(--gris-fondo);
-    color: var(--gris-texto);
-    font-size: 0.95rem;
-    font-family: inherit;
-  }
-
-  .step-label { font-size: 0.9rem; margin: 10px 0 6px; font-weight: 700; }
-  .step-value { color: var(--rojo); font-weight: 700; }
-  .step-buttons { display: grid; gap: 8px; }
-  .step-buttons .btn { min-height: 56px; }
-  .step-hidden { display: none; }
-
-  .notice {
-    background: #FFF8E1;
-    border-left: 4px solid #F9A825;
-    padding: 10px 12px;
-    border-radius: 6px;
-    font-size: 0.86rem;
-    margin: 12px 0;
-    color: #6D4C00;
-    line-height: 1.35;
-  }
-  .notice-ok {
-    background: #E8F5E9;
-    border-left: 4px solid var(--verde);
-    padding: 10px 12px;
-    border-radius: 6px;
-    font-size: 0.86rem;
-    margin: 10px 0;
-    color: #1B5E20;
-    line-height: 1.35;
-  }
-  @media (prefers-color-scheme: dark) {
-    .notice { background: #2A2410; color: #F9E7A0; }
-    .notice-ok { background: #142B17; color: #A5D6A7; }
-    .banner { background: #2A2410; color: #F9E7A0; }
-  }
-
-  .health-summary {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    background: var(--tarjeta);
-    border-radius: 10px;
-    font-weight: 700;
-    margin: 8px 0;
-    border: 1px solid var(--borde);
-    font-size: 0.95rem;
-  }
-  .health-summary .dot { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; }
-  .dot.ok { background: var(--verde); }
-  .dot.warn { background: #F9A825; }
-  .dot.bad { background: var(--rojo); }
-  .dot.gray { background: #999999; }
-
-  .health-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    background: var(--tarjeta);
-    border-radius: 8px;
-    margin: 6px 0;
-    border: 1px solid var(--borde);
-    font-size: 0.9rem;
-  }
-  .health-row .icon { font-size: 1.15rem; flex-shrink: 0; width: 20px; text-align: center; }
-  .health-row .info { flex: 1; min-width: 0; }
-  .health-row .name { font-weight: 700; }
-  .health-row .detail { color: var(--detalle); font-size: 0.8rem; margin-top: 2px; word-break: break-word; }
-  .health-row.info-row { opacity: 0.92; }
-  .health-row .btn-small { flex-shrink: 0; }
-
-  .fcm-token {
-    display: block;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.78rem;
-    background: rgba(0,0,0,0.05);
-    border: 1px solid var(--borde);
-    border-radius: 6px;
-    padding: 8px 10px;
-    word-break: break-all;
-    color: var(--gris-texto);
-    margin: 8px 0;
-  }
-  @media (prefers-color-scheme: dark) {
-    .fcm-token { background: rgba(255,255,255,0.05); }
-  }
-
-  .reports-list { font-size: 0.85rem; }
-  .report-item {
-    background: var(--tarjeta);
-    border: 1px solid var(--borde);
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin: 6px 0;
-  }
-  .report-item .meta { color: var(--detalle); font-size: 0.78rem; margin-top: 4px; }
-  .badge-sync { color: var(--verde); font-weight: 700; }
-  .badge-pending { color: #E65100; font-weight: 700; }
-
-  .user-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 8px 10px;
-    border: 1px solid var(--borde);
-    border-radius: 8px;
-    margin: 6px 0;
-    font-size: 0.83rem;
-  }
-
-  footer { text-align: center; font-size: 0.8rem; color: var(--detalle); margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--borde); }
-</style>
-</head>
-<body>
-  <header>
-    <h1>INDRHI Emergencias</h1>
-    <div class="sub">Sistema Institucional de Alerta y Evacuación</div>
-  </header>
-
-  <div class="banner" id="previewBanner">Modo vista previa: sin puente nativo. Los controles de sirena y ajustes no funcionarán aquí.</div>
-
-  <!-- Aviso automático de nueva versión de la aplicación -->
-  <div class="update-card hidden" id="updateCard">
-    <div class="update-title" id="updateTitle">Nueva versión disponible</div>
-    <div class="update-notes" id="updateNotes">Hay una mejora disponible para INDRHI Emergencias.</div>
-    <div style="display:grid;grid-template-columns:1fr;gap:8px">
-      <button class="btn btn-primary-dark btn-small" id="btnStartUpdate" type="button">Descargar e instalar actualización</button>
-      <button class="btn btn-safe btn-small hidden" id="btnInstallDownloaded" type="button">Instalar APK descargado</button>
-    </div>
-    <div id="updateProgressMsg" style="font-size:0.82rem;margin-top:6px;font-weight:700"></div>
-  </div>
-
-  <!-- Barra de sesión activa -->
-  <div class="session-bar hidden" id="sessionBar">
-    <div class="session-info">
-      <div class="session-email" id="sessionEmailText">—</div>
-      <div id="sessionNameSub" style="font-size:0.78rem;color:var(--detalle)">—</div>
-      <span class="role-badge" id="sessionRoleBadge">COLABORADOR</span>
-    </div>
-    <button class="btn btn-secondary btn-small" id="btnLogout" type="button">Salir</button>
-  </div>
-
-  <!-- Tarjeta de acceso institucional (@indrhi.gob.do) -->
-  <div class="card-auth" id="authCard">
-    <h2>Acceso Institucional (@indrhi.gob.do)</h2>
-    <div class="tab-row">
-      <button class="tab-btn active" id="tabLogin" type="button">Iniciar sesión</button>
-      <button class="tab-btn" id="tabRegister" type="button">Crear cuenta</button>
-    </div>
-
-    <div class="field-group hidden" id="grpAuthNombre">
-      <label for="authNombre">Nombre completo</label>
-      <input type="text" id="authNombre" placeholder="Ej. Angel Feliz">
-    </div>
-
-    <div class="field-group">
-      <label for="authEmail">Correo electrónico institucional</label>
-      <input type="email" id="authEmail" placeholder="usuario@indrhi.gob.do" autocomplete="email">
-    </div>
-
-    <div class="field-group">
-      <label for="authPassword">Contraseña (mínimo 6 caracteres)</label>
-      <input type="password" id="authPassword" placeholder="••••••" autocomplete="current-password">
-    </div>
-
-    <div class="field-group hidden" id="grpAuthEdificio">
-      <label for="authEdificio">Ubicación habitual</label>
-      <select id="authEdificio">
-        <option value="Edificio ED1">Edificio ED1</option>
-        <option value="Edificio ED2">Edificio ED2</option>
-        <option value="Exterior">Exterior / Regional</option>
-      </select>
-    </div>
-
-    <button class="btn btn-primary-dark btn-block" id="btnAuthSubmit" type="button">Entrar al sistema</button>
-    <div id="authMsg" style="font-size:0.83rem;margin-top:8px;color:var(--rojo);font-weight:700"></div>
-  </div>
-
-  <!-- Panel exclusivo de Administrador (ajfeliz@indrhi.gob.do / rol admin) -->
-  <div class="card-neutral hidden" id="adminPanel">
-    <h2>Administración de Roles (Admin)</h2>
-    <div class="field-group">
-      <label for="adminTargetEmail">Correo del colaborador (@indrhi.gob.do)</label>
-      <input type="email" id="adminTargetEmail" placeholder="colaborador@indrhi.gob.do">
-    </div>
-    <div class="field-group">
-      <label for="adminTargetRole">Rol asignado</label>
-      <select id="adminTargetRole">
-        <option value="colaborador">Colaborador (Reporta estado y recibe alertas)</option>
-        <option value="brigadista">Brigadista (Puede activar sirena roja)</option>
-        <option value="admin">Administrador (Control total y gestión de roles)</option>
-      </select>
-    </div>
-    <button class="btn btn-primary-dark btn-small btn-block" id="btnAssignRole" type="button">Guardar rol del usuario</button>
-    <div id="adminMsg" style="font-size:0.82rem;margin-top:6px;color:var(--detalle)"></div>
-
-    <div style="margin-top:12px">
-      <button class="btn btn-secondary btn-small btn-block" id="btnLoadUsers" type="button">Ver usuarios registrados</button>
-      <div id="adminUsersList" style="margin-top:8px"></div>
-    </div>
-
-    <hr style="border:none;border-top:1px solid var(--borde);margin:16px 0">
-    <h2 style="margin-top:0">Publicar nueva versión APK (OTA)</h2>
-    <div class="field-group">
-      <label for="otaVersionCode">Código de versión (entero mayor al actual)</label>
-      <input type="number" id="otaVersionCode" placeholder="Ej. 2">
-    </div>
-    <div class="field-group">
-      <label for="otaVersionName">Nombre de versión visible</label>
-      <input type="text" id="otaVersionName" placeholder="Ej. 1.1.0">
-    </div>
-    <div class="field-group">
-      <label for="otaApkUrl">Enlace directo al APK (GitHub Releases)</label>
-      <input type="url" id="otaApkUrl" value="https://github.com/angelcruz3102-hub/indrhi-emergencias-v2/releases/latest/download/app-debug.apk">
-    </div>
-    <div class="field-group">
-      <label for="otaNotes">Novedades de esta versión</label>
-      <input type="text" id="otaNotes" placeholder="Ej. Mejoras en alerta remota y control de roles">
-    </div>
-    <button class="btn btn-primary-dark btn-small btn-block" id="btnPublishOta" type="button">Publicar aviso de actualización</button>
-    <div id="otaPublishMsg" style="font-size:0.82rem;margin-top:6px;color:var(--detalle)"></div>
-  </div>
-
-  <div class="siren-status" id="sirenStatus">
-    <span class="dot"></span>
-    <span id="sirenStatusText">Sirena: detenida</span>
-  </div>
-
-  <div class="grid-buttons">
-    <button class="btn btn-danger hidden" id="btnActivate" type="button">Activar Sirena Roja</button>
-    <button class="btn btn-stop" id="btnStop" type="button">Detener Sirena</button>
-    <button class="btn btn-safe" id="btnSafe" type="button">Estoy a salvo</button>
-    <button class="btn btn-help" id="btnHelp" type="button">Necesito ayuda</button>
-  </div>
-  <div id="roleSirenNote" style="font-size:0.8rem;color:var(--detalle);margin:-8px 0 12px;text-align:center">
-    Inicia sesión con tu correo @indrhi.gob.do para sincronizar tus reportes y permisos.
-  </div>
-
-  <div class="card">
-    <h2>Reporte rápido de 3 toques</h2>
-    <div class="step-label">Toque 1 — Tipo: <span class="step-value" id="selTipo">—</span></div>
-    <div class="step-buttons" id="stepTipo">
-      <button class="btn" type="button" data-tipo="Incendio">Incendio</button>
-      <button class="btn" type="button" data-tipo="Inundación">Inundación</button>
-      <button class="btn" type="button" data-tipo="Falla estructural">Falla estructural</button>
-      <button class="btn" type="button" data-tipo="Otro">Otro</button>
-    </div>
-
-    <div class="step-label step-hidden" id="lblLugar">Toque 2 — Lugar: <span class="step-value" id="selLugar">—</span></div>
-    <div class="step-buttons step-hidden" id="stepLugar">
-      <button class="btn" type="button" data-lugar="Edificio ED1">Edificio ED1</button>
-      <button class="btn" type="button" data-lugar="Edificio ED2">Edificio ED2</button>
-      <button class="btn" type="button" data-lugar="Exterior">Exterior</button>
-    </div>
-
-    <div class="step-label step-hidden" id="lblEstado">Toque 3 — Estado: <span class="step-value" id="selEstado">—</span></div>
-    <div class="step-buttons step-hidden" id="stepEstado">
-      <button class="btn" type="button" data-estado="A salvo">A salvo</button>
-      <button class="btn" type="button" data-estado="Necesito ayuda">Necesito ayuda</button>
-      <button class="btn" type="button" data-estado="Hay heridos">Hay heridos</button>
-    </div>
-
-    <div class="notice" id="cloudSyncStatus">
-      Inicia sesión con tu correo @indrhi.gob.do para enviar reportes a Cloud Firestore.
-    </div>
-    <button class="btn btn-secondary btn-small btn-block" id="btnResetReport" type="button" style="margin-top:8px">Reiniciar selección</button>
-  </div>
-
-  <!-- Ubicación actual del colaborador autenticado -->
-  <div class="card-neutral hidden" id="locationCard">
-    <h2>Ubicación habitual</h2>
-    <div class="field-group">
-      <label for="selEdificioPerfil">Edificio asignado para alertas</label>
-      <select id="selEdificioPerfil">
-        <option value="Edificio ED1">Edificio ED1</option>
-        <option value="Edificio ED2">Edificio ED2</option>
-        <option value="Exterior">Exterior / Regional</option>
-      </select>
-    </div>
-    <button class="btn btn-primary-dark btn-small btn-block" id="btnUpdateLocation" type="button">Actualizar ubicación y canal</button>
-    <div class="detail" id="profileSyncMsg" style="font-size:0.8rem;margin-top:6px;color:var(--detalle)"></div>
-  </div>
-
-  <h2>Reportes recientes</h2>
-  <div style="display:grid;margin-bottom:8px">
-    <button class="btn btn-secondary btn-small" id="btnSyncNow" type="button">Sincronizar pendientes ahora</button>
-  </div>
-  <div class="reports-list" id="reportsList"></div>
-
-  <h2>Panel de salud de permisos</h2>
-  <div class="health-summary" id="healthSummary">
-    <span class="dot gray" id="healthDot"></span>
-    <span id="healthSummaryText">Consultando…</span>
-  </div>
-  <div id="healthRows"></div>
-  <div style="display:grid;gap:8px;margin-top:10px">
-    <button class="btn btn-secondary" id="btnRefreshHealth" type="button">Actualizar</button>
-  </div>
-
-  <h2>Token FCM y canales de alerta</h2>
-  <div class="health-row">
-    <span class="icon" id="fcmStatusIcon">ℹ</span>
-    <div class="info">
-      <div class="name">Registro de notificaciones push</div>
-      <div class="detail" id="fcmStatusDetail">Consultando…</div>
-    </div>
-  </div>
-  <code class="fcm-token" id="fcmTokenValue">(sin token)</code>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
-    <button class="btn btn-secondary btn-small" id="btnRefreshFcm" type="button">Actualizar token</button>
-    <button class="btn btn-secondary btn-small" id="btnCopyFcm" type="button">Copiar token</button>
-  </div>
-
-  <footer id="appFooter">INDRHI Emergencias · Fase 5 (OTA & Roles)</footer>
-
+:root{--red:#DC2626;--red2:#991B1B;--blue:#1D4ED8;--green:#16A34A;--amber:#D97706;--bg:#F1F5F9;--card:#fff;--tx:#0F172A;--mut:#64748B;--bd:#E2E8F0;--sh:0 2px 10px rgba(15,23,42,.08);--r:16px}
+@media(prefers-color-scheme:dark){:root{--bg:#0B1220;--card:#162033;--tx:#F1F5F9;--mut:#94A3B8;--bd:#263247;--sh:0 2px 12px rgba(0,0,0,.4)}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);font-size:15px;line-height:1.4}
+button,input,select,textarea{font:inherit;color:inherit}
+#app{display:flex;flex-direction:column;height:100%}
+header.top{background:var(--red2);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:10px}
+header.top b{font-size:17px}header.top small{opacity:.85;display:block;font-size:12px}
+main{flex:1;overflow-y:auto;padding:14px 14px 90px}
+nav.bot{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom);z-index:20}
+nav.bot button{flex:1;border:0;background:none;padding:8px 2px 7px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;color:var(--mut);min-height:56px;cursor:pointer}
+nav.bot button.on{color:var(--red)}
+nav.bot svg{width:24px;height:24px}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px;margin-bottom:12px}
+h2{font-size:17px;margin:0 0 10px}h3{font-size:15px;margin:0 0 6px}
+.mut{color:var(--mut);font-size:13px}
+.btn{border:0;border-radius:14px;padding:13px 16px;font-weight:700;background:var(--blue);color:#fff;width:100%;min-height:48px;cursor:pointer}
+.btn.red{background:var(--red)}.btn.green{background:var(--green)}.btn.amber{background:var(--amber)}.btn.gray{background:var(--bd);color:var(--tx)}
+.btn.sm{width:auto;padding:8px 12px;min-height:36px;font-size:13px;border-radius:10px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.wrap{display:flex;flex-wrap:wrap;gap:8px}
+input,select,textarea{width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);margin:4px 0 10px}
+label{font-size:13px;color:var(--mut);font-weight:600}
+.chip{border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:7px 14px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bd);color:var(--mut)}
+.badge.g{background:#DCFCE7;color:#166534}.badge.a{background:#FEF3C7;color:#92400E}.badge.r{background:#FEE2E2;color:#991B1B}.badge.b{background:#DBEAFE;color:#1E40AF}
+.siren{display:flex;align-items:center;gap:14px}
+.dot{width:54px;height:54px;border-radius:50%;background:var(--green);flex:none}
+.dot.on{background:var(--red);animation:pulse 1s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(220,38,38,.6)}100%{box-shadow:0 0 0 22px rgba(220,38,38,0)}}
+@media(prefers-reduced-motion:reduce){.dot.on{animation:none}}
+.banner{background:var(--blue);color:#fff;border-radius:var(--r);padding:12px 14px;margin-bottom:12px}
+.banner .btn{background:#fff;color:var(--blue);margin-top:8px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+.modal{background:var(--card);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:90%;overflow:auto}
+.modal .ic{width:52px;height:52px;border-radius:50%;background:#FEF3C7;color:var(--amber);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.modal.c{text-align:center}
+#toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#0F172A;color:#fff;padding:11px 18px;border-radius:14px;z-index:99;max-width:88%;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.on{opacity:1}#toast.ok{background:var(--green)}#toast.err{background:var(--red2)}
+.auth{min-height:100%;padding:calc(30px + env(safe-area-inset-top)) 18px 30px;max-width:460px;margin:0 auto}
+.auth h1{font-size:24px;margin:0 0 4px}
+.tabs{display:flex;background:var(--bd);border-radius:14px;padding:4px;margin:16px 0}
+.tabs button{flex:1;border:0;background:none;padding:10px;border-radius:11px;font-weight:700;color:var(--mut);cursor:pointer}
+.tabs button.on{background:var(--card);color:var(--tx);box-shadow:var(--sh)}
+.bar{height:26px;border-radius:8px;background:var(--bd);position:relative;overflow:hidden;margin:6px 0;cursor:pointer}
+.bar i{position:absolute;inset:0 auto 0 0;background:#BFDBFE;display:block}
+.bar span{position:relative;display:flex;justify-content:space-between;padding:4px 10px;font-size:13px}
+.msgs{height:calc(100vh - 290px);min-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px}
+.msg{max-width:82%;padding:8px 12px;border-radius:16px;background:var(--card);box-shadow:var(--sh);align-self:flex-start}
+.msg.me{align-self:flex-end;background:var(--blue);color:#fff}
+.msg small{display:block;font-size:11px;opacity:.75}
+.hl{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)}.hl:last-child{border:0}
+.led{width:14px;height:14px;border-radius:50%;flex:none}.led.g{background:var(--green)}.led.r{background:var(--red)}
+.opt{border:2px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:8px;font-weight:600;cursor:pointer;background:var(--card);width:100%;text-align:left}
+.pre{word-break:break-all;font-size:12px;background:var(--bg);padding:8px;border-radius:10px;margin:6px 0}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+</style></head><body>
+<div id="app"></div><div id="ov"></div><div id="toast"></div>
 <script>
-(function () {
-  'use strict';
-
-  var DEFAULT_ADMIN_EMAIL = 'ajfeliz@indrhi.gob.do';
-  var ALLOWED_DOMAIN = '@indrhi.gob.do';
-
-  var STORAGE_KEY = 'indrhi.reportes';
-  var FCM_STORAGE_KEY = 'indrhi.fcmToken';
-  var AUTH_STORAGE_KEY = 'indrhi.authSession';
-  var DEVICE_ID_KEY = 'indrhi.deviceId';
-  var MAX_REPORTS = 50;
-
-  var authMode = 'login';
-  var sirenPollTimer = null;
-  var tripleSelection = { tipo: null, lugar: null, estado: null };
-  var isSyncing = false;
-  var latestOtaApkUrl = '';
-
-  function getBridge() {
-    return (typeof window !== 'undefined' && window.IndrhiBridge) ? window.IndrhiBridge : null;
-  }
-
-  function safeCall(methodName, fallback) {
-    var bridge = getBridge();
-    if (!bridge || typeof bridge[methodName] !== 'function') return fallback;
-    try { return bridge[methodName](); } catch (e) { return fallback; }
-  }
-
-  function safeCallArg(methodName, arg, fallback) {
-    var bridge = getBridge();
-    if (!bridge || typeof bridge[methodName] !== 'function') return fallback;
-    try { return bridge[methodName](arg); } catch (e) { return fallback; }
-  }
-
-  function parseJson(raw) {
-    if (raw == null) return null;
-    if (typeof raw === 'object') return raw;
-    try { return JSON.parse(raw); } catch (e) { return null; }
-  }
-
-  function escapeHtml(s) {
-    if (s == null) return '';
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
-    });
-  }
-
-  function getFirebaseCfg() {
-    var cfg = parseJson(safeCall('getFirebaseConfig', null));
-    if (cfg && cfg.ok && cfg.apiKey) {
-      return { apiKey: cfg.apiKey, projectId: cfg.projectId || 'indrhi-emergencias' };
-    }
-    return { apiKey: '', projectId: 'indrhi-emergencias' };
-  }
-
-  function firestoreBaseUrl() {
-    var cfg = getFirebaseCfg();
-    return 'https://firestore.googleapis.com/v1/projects/' + cfg.projectId + '/databases/(default)/documents';
-  }
-
-  function setPreviewBanner() {
-    if (!getBridge()) {
-      document.getElementById('previewBanner').classList.add('visible');
-    }
-  }
-
-  function getDeviceId() {
-    var id = '';
-    try { id = localStorage.getItem(DEVICE_ID_KEY) || ''; } catch (e) {}
-    if (!id) {
-      id = 'dev-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
-      try { localStorage.setItem(DEVICE_ID_KEY, id); } catch (e) {}
-    }
-    return id;
-  }
-
-  // ---------- Actualización automática de APK (OTA) ----------
-  function checkAppUpdate() {
-    var ctx = parseJson(safeCall('getContext', null)) || {};
-    var currentCode = Number(ctx.versionCode || 1);
-    var currentName = ctx.versionName || '1.0.0';
-
-    var footer = document.getElementById('appFooter');
-    if (footer) {
-      footer.textContent = 'INDRHI Emergencias · v' + currentName + ' (build ' + currentCode + ')';
-    }
-
-    fetch(firestoreBaseUrl() + '/config/version', { method: 'GET' })
-      .then(function (res) {
-        if (!res.ok) return null;
-        return res.json();
-      })
-      .then(function (doc) {
-        if (!doc || !doc.fields) return;
-        var f = doc.fields;
-        var remoteCode = Number((f.latestVersionCode && (f.latestVersionCode.integerValue || f.latestVersionCode.stringValue)) || 0);
-        var remoteName = (f.latestVersionName && f.latestVersionName.stringValue) ? f.latestVersionName.stringValue : '';
-        var apkUrl = (f.apkUrl && f.apkUrl.stringValue) ? f.apkUrl.stringValue : '';
-        var notes = (f.releaseNotes && f.releaseNotes.stringValue) ? f.releaseNotes.stringValue : 'Nueva actualización institucional disponible.';
-
-        if (remoteCode > currentCode && apkUrl) {
-          latestOtaApkUrl = apkUrl;
-          document.getElementById('updateTitle').textContent = 'Nueva versión disponible: v' + (remoteName || remoteCode);
-          document.getElementById('updateNotes').textContent = notes;
-          document.getElementById('updateCard').classList.remove('hidden');
-        } else {
-          document.getElementById('updateCard').classList.add('hidden');
-        }
-      })
-      .catch(function () {});
-  }
-
-  function startOtaDownload() {
-    if (!latestOtaApkUrl) return;
-    var msgEl = document.getElementById('updateProgressMsg');
-    msgEl.style.color = '#1565C0';
-    msgEl.textContent = 'Iniciando descarga...';
-    var res = parseJson(safeCallArg('downloadAndInstallUpdate', latestOtaApkUrl, null));
-    if (res && res.ok === false) {
-      msgEl.style.color = '#C62828';
-      msgEl.textContent = res.error || 'No se pudo iniciar la descarga.';
-    }
-  }
-
-  function installDownloadedOta() {
-    var res = parseJson(safeCall('installPendingUpdate', null));
-    if (res && res.ok === false) {
-      document.getElementById('updateProgressMsg').textContent = res.error || 'No se pudo instalar.';
-    }
-  }
-
-  window.onUpdateDownloadState = function (state, detail) {
-    var msgEl = document.getElementById('updateProgressMsg');
-    var btnInstall = document.getElementById('btnInstallDownloaded');
-    if (!msgEl) return;
-    msgEl.textContent = detail || '';
-    if (state === 'error') {
-      msgEl.style.color = '#C62828';
-    } else if (state === 'permission_required' || state === 'ready') {
-      msgEl.style.color = '#2E7D32';
-      if (btnInstall) btnInstall.classList.remove('hidden');
-    } else {
-      msgEl.style.color = '#1565C0';
-    }
-  };
-
-  function publishOtaConfig() {
-    var s = loadSession();
-    if (!s || s.rol !== 'admin') {
-      window.alert('Solo un administrador puede publicar actualizaciones.');
-      return;
-    }
-    var codeVal = parseInt(document.getElementById('otaVersionCode').value, 10);
-    var nameVal = document.getElementById('otaVersionName').value.trim();
-    var urlVal = document.getElementById('otaApkUrl').value.trim();
-    var notesVal = document.getElementById('otaNotes').value.trim();
-    var msgEl = document.getElementById('otaPublishMsg');
-
-    if (!codeVal || codeVal < 1 || !nameVal || !urlVal) {
-      msgEl.style.color = '#C62828';
-      msgEl.textContent = 'Completa el código numérico, nombre de versión y URL del APK.';
-      return;
-    }
-
-    msgEl.style.color = '#1565C0';
-    msgEl.textContent = 'Publicando aviso de actualización...';
-
-    getValidIdToken().then(function (idToken) {
-      var body = {
-        fields: {
-          latestVersionCode: { integerValue: String(codeVal) },
-          latestVersionName: { stringValue: nameVal },
-          apkUrl: { stringValue: urlVal },
-          releaseNotes: { stringValue: notesVal || 'Mejoras generales y estabilidad.' },
-          actualizadoIso: { stringValue: new Date().toISOString() }
-        }
-      };
-      return fetch(firestoreBaseUrl() + '/config/version', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': 'Bearer ' + idToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-    }).then(function (res) {
-      if (res.ok) {
-        msgEl.style.color = '#2E7D32';
-        msgEl.textContent = '✔ Versión v' + nameVal + ' (build ' + codeVal + ') publicada para todos los dispositivos.';
-        checkAppUpdate();
-      } else {
-        msgEl.style.color = '#C62828';
-        msgEl.textContent = 'Error HTTP ' + res.status + ' al publicar actualización.';
-      }
-    }).catch(function () {
-      msgEl.style.color = '#C62828';
-      msgEl.textContent = 'Sin conexión para publicar la actualización.';
-    });
-  }
-
-  // ---------- Sesión y Firebase Authentication ----------
-  function loadSession() {
-    try {
-      var raw = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (!raw) return null;
-      return JSON.parse(raw);
-    } catch (e) { return null; }
-  }
-
-  function saveSession(session) {
-    try {
-      if (!session) localStorage.removeItem(AUTH_STORAGE_KEY);
-      else localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-    } catch (e) {}
-  }
-
-  function getValidIdToken() {
-    var s = loadSession();
-    if (!s || !s.idToken) return Promise.resolve(null);
-    if (s.expiresAt && Date.now() < s.expiresAt) {
-      return Promise.resolve(s.idToken);
-    }
-    var cfg = getFirebaseCfg();
-    if (!cfg.apiKey || !s.refreshToken) return Promise.resolve(s.idToken);
-
-    return fetch('https://securetoken.googleapis.com/v1/token?key=' + encodeURIComponent(cfg.apiKey), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(s.refreshToken)
-    }).then(function (res) {
-      return res.json();
-    }).then(function (data) {
-      if (data && data.id_token) {
-        s.idToken = data.id_token;
-        s.refreshToken = data.refresh_token || s.refreshToken;
-        s.expiresAt = Date.now() + (Number(data.expires_in || 3600) - 60) * 1000;
-        saveSession(s);
-        return s.idToken;
-      }
-      return null;
-    }).catch(function () {
-      return s.idToken;
-    });
-  }
-
-  function setAuthMode(mode) {
-    authMode = mode;
-    var tabL = document.getElementById('tabLogin');
-    var tabR = document.getElementById('tabRegister');
-    var grpNom = document.getElementById('grpAuthNombre');
-    var grpEd = document.getElementById('grpAuthEdificio');
-    var btnSub = document.getElementById('btnAuthSubmit');
-    document.getElementById('authMsg').textContent = '';
-
-    if (mode === 'register') {
-      tabL.classList.remove('active');
-      tabR.classList.add('active');
-      grpNom.classList.remove('hidden');
-      grpEd.classList.remove('hidden');
-      btnSub.textContent = 'Registrar cuenta @indrhi.gob.do';
-    } else {
-      tabR.classList.remove('active');
-      tabL.classList.add('active');
-      grpNom.classList.add('hidden');
-      grpEd.classList.add('hidden');
-      btnSub.textContent = 'Entrar al sistema';
-    }
-  }
-
-  function mapAuthError(code) {
-    if (!code) return 'Error de autenticación.';
-    if (code.indexOf('EMAIL_EXISTS') !== -1) return 'Este correo ya está registrado. Cambia a "Iniciar sesión".';
-    if (code.indexOf('INVALID_LOGIN_CREDENTIALS') !== -1 || code.indexOf('INVALID_PASSWORD') !== -1 || code.indexOf('EMAIL_NOT_FOUND') !== -1) {
-      return 'Correo o contraseña incorrectos.';
-    }
-    if (code.indexOf('WEAK_PASSWORD') !== -1) return 'La contraseña debe tener al menos 6 caracteres.';
-    if (code.indexOf('TOO_MANY_ATTEMPTS') !== -1) return 'Demasiados intentos. Espera unos minutos.';
-    return 'Error: ' + code;
-  }
-
-  function handleAuthSubmit() {
-    var email = document.getElementById('authEmail').value.trim().toLowerCase();
-    var password = document.getElementById('authPassword').value;
-    var nombre = document.getElementById('authNombre').value.trim();
-    var edificio = document.getElementById('authEdificio').value;
-    var msgEl = document.getElementById('authMsg');
-
-    msgEl.style.color = '#C62828';
-    msgEl.textContent = '';
-
-    if (!email || email.slice(-ALLOWED_DOMAIN.length) !== ALLOWED_DOMAIN) {
-      msgEl.textContent = 'Solo se permiten correos institucionales (@indrhi.gob.do).';
-      return;
-    }
-    if (!password || password.length < 6) {
-      msgEl.textContent = 'La contraseña debe tener al menos 6 caracteres.';
-      return;
-    }
-    if (authMode === 'register' && !nombre) {
-      msgEl.textContent = 'Escribe tu nombre completo para registrarte.';
-      return;
-    }
-
-    var cfg = getFirebaseCfg();
-    if (!cfg.apiKey) {
-      msgEl.textContent = 'API Key de Firebase no disponible en este entorno.';
-      return;
-    }
-
-    var endpoint = authMode === 'register' ? 'accounts:signUp' : 'accounts:signInWithPassword';
-    msgEl.style.color = '#1565C0';
-    msgEl.textContent = 'Verificando credenciales institucionales...';
-
-    fetch('https://identitytoolkit.googleapis.com/v1/' + endpoint + '?key=' + encodeURIComponent(cfg.apiKey), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
-    }).then(function (res) {
-      return res.json();
-    }).then(function (data) {
-      if (data.error) {
-        msgEl.style.color = '#C62828';
-        msgEl.textContent = mapAuthError(data.error.message);
-        return;
-      }
-
-      var session = {
-        email: email,
-        uid: data.localId,
-        idToken: data.idToken,
-        refreshToken: data.refreshToken,
-        expiresAt: Date.now() + (Number(data.expiresIn || 3600) - 60) * 1000,
-        nombre: nombre || email.split('@')[0],
-        edificio: edificio || 'Edificio ED1',
-        rol: (email === DEFAULT_ADMIN_EMAIL) ? 'admin' : 'colaborador'
-      };
-      saveSession(session);
-      document.getElementById('authPassword').value = '';
-      msgEl.textContent = '';
-
-      return syncUserRoleFromFirestore(session).then(function (updatedSession) {
-        renderAuthState();
-        applyTopicSubscriptions(updatedSession.edificio);
-        registerDeviceInFirestore(updatedSession, loadStoredFcmToken());
-        syncPendingReports();
-      });
-    }).catch(function () {
-      msgEl.style.color = '#C62828';
-      msgEl.textContent = 'Sin conexión a Internet para verificar la cuenta.';
-    });
-  }
-
-  function syncUserRoleFromFirestore(session) {
-    if (!session || !session.email) return Promise.resolve(session);
-    return getValidIdToken().then(function (idToken) {
-      if (!idToken) return session;
-      var url = firestoreBaseUrl() + '/usuarios/' + encodeURIComponent(session.email);
-      return fetch(url, {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer ' + idToken }
-      }).then(function (res) {
-        if (res.ok) {
-          return res.json().then(function (doc) {
-            var f = doc.fields || {};
-            var dbRol = (f.rol && f.rol.stringValue) ? f.rol.stringValue : 'colaborador';
-            if (session.email === DEFAULT_ADMIN_EMAIL) dbRol = 'admin';
-            session.rol = dbRol;
-            if (f.nombre && f.nombre.stringValue) session.nombre = f.nombre.stringValue;
-            if (f.edificio && f.edificio.stringValue) session.edificio = f.edificio.stringValue;
-            saveSession(session);
-            if (session.email === DEFAULT_ADMIN_EMAIL && (!f.rol || f.rol.stringValue !== 'admin')) {
-              return upsertUserDoc(session, idToken).then(function () { return session; });
-            }
-            return session;
-          });
-        } else {
-          session.rol = (session.email === DEFAULT_ADMIN_EMAIL) ? 'admin' : 'colaborador';
-          saveSession(session);
-          return upsertUserDoc(session, idToken).then(function () { return session; });
-        }
-      }).catch(function () {
-        return session;
-      });
-    });
-  }
-
-  function upsertUserDoc(session, idToken) {
-    var url = firestoreBaseUrl() + '/usuarios/' + encodeURIComponent(session.email);
-    var body = {
-      fields: {
-        email: { stringValue: session.email },
-        nombre: { stringValue: session.nombre || session.email.split('@')[0] },
-        edificio: { stringValue: session.edificio || 'Edificio ED1' },
-        rol: { stringValue: session.rol || 'colaborador' },
-        uid: { stringValue: session.uid || '' },
-        actualizadoIso: { stringValue: new Date().toISOString() }
-      }
-    };
-    return fetch(url, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': 'Bearer ' + idToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-  }
-
-  function handleLogout() {
-    saveSession(null);
-    renderAuthState();
-  }
-
-  function renderAuthState() {
-    var s = loadSession();
-    var authCard = document.getElementById('authCard');
-    var sessionBar = document.getElementById('sessionBar');
-    var adminPanel = document.getElementById('adminPanel');
-    var locationCard = document.getElementById('locationCard');
-    var btnActivate = document.getElementById('btnActivate');
-    var roleNote = document.getElementById('roleSirenNote');
-
-    if (!s || !s.email) {
-      authCard.classList.remove('hidden');
-      sessionBar.classList.add('hidden');
-      adminPanel.classList.add('hidden');
-      locationCard.classList.add('hidden');
-      btnActivate.classList.add('hidden');
-      roleNote.textContent = 'Inicia sesión con tu correo @indrhi.gob.do para sincronizar tus reportes y permisos.';
-      return;
-    }
-
-    authCard.classList.add('hidden');
-    sessionBar.classList.remove('hidden');
-    locationCard.classList.remove('hidden');
-
-    document.getElementById('sessionEmailText').textContent = s.email;
-    document.getElementById('sessionNameSub').textContent = (s.nombre || '') + ' · ' + (s.edificio || 'Edificio ED1');
-    document.getElementById('selEdificioPerfil').value = s.edificio || 'Edificio ED1';
-
-    var badge = document.getElementById('sessionRoleBadge');
-    var rol = s.rol || 'colaborador';
-    badge.textContent = rol.toUpperCase();
-    badge.className = 'role-badge ' + rol;
-
-    if (rol === 'admin') {
-      adminPanel.classList.remove('hidden');
-      var ctx = parseJson(safeCall('getContext', null)) || {};
-      var nextCode = Number(ctx.versionCode || 1) + 1;
-      var codeInp = document.getElementById('otaVersionCode');
-      if (codeInp && !codeInp.value) codeInp.value = String(nextCode);
-    } else {
-      adminPanel.classList.add('hidden');
-    }
-
-    if (rol === 'admin' || rol === 'brigadista') {
-      btnActivate.classList.remove('hidden');
-      roleNote.textContent = 'Permiso activo para disparar alerta de sirena institucional.';
-    } else {
-      btnActivate.classList.add('hidden');
-      roleNote.textContent = 'Rol Colaborador: activación de sirena reservada a Brigadistas y Administradores.';
-    }
-  }
-
-  // ---------- Administración de Roles ----------
-  function assignUserRole() {
-    var s = loadSession();
-    if (!s || s.rol !== 'admin') {
-      window.alert('Solo un administrador puede asignar roles.');
-      return;
-    }
-    var targetEmail = document.getElementById('adminTargetEmail').value.trim().toLowerCase();
-    var targetRole = document.getElementById('adminTargetRole').value;
-    var msgEl = document.getElementById('adminMsg');
-
-    if (!targetEmail || targetEmail.slice(-ALLOWED_DOMAIN.length) !== ALLOWED_DOMAIN) {
-      msgEl.style.color = '#C62828';
-      msgEl.textContent = 'El correo debe terminar en @indrhi.gob.do';
-      return;
-    }
-
-    msgEl.style.color = '#1565C0';
-    msgEl.textContent = 'Actualizando rol en Firestore...';
-
-    getValidIdToken().then(function (idToken) {
-      var url = firestoreBaseUrl() + '/usuarios/' + encodeURIComponent(targetEmail) + '?updateMask.fieldPaths=email&updateMask.fieldPaths=rol&updateMask.fieldPaths=actualizadoIso';
-      var body = {
-        fields: {
-          email: { stringValue: targetEmail },
-          rol: { stringValue: targetRole },
-          actualizadoIso: { stringValue: new Date().toISOString() }
-        }
-      };
-      return fetch(url, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': 'Bearer ' + idToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-    }).then(function (res) {
-      if (res.ok) {
-        msgEl.style.color = '#2E7D32';
-        msgEl.textContent = '✔ Rol "' + targetRole + '" asignado a ' + targetEmail;
-        loadRegisteredUsers();
-      } else {
-        msgEl.style.color = '#C62828';
-        msgEl.textContent = 'Error HTTP ' + res.status + ' al asignar rol.';
-      }
-    }).catch(function () {
-      msgEl.style.color = '#C62828';
-      msgEl.textContent = 'Sin conexión para actualizar el rol.';
-    });
-  }
-
-  function loadRegisteredUsers() {
-    var listEl = document.getElementById('adminUsersList');
-    listEl.innerHTML = '<div style="font-size:0.8rem;color:var(--detalle)">Cargando usuarios...</div>';
-
-    getValidIdToken().then(function (idToken) {
-      if (!idToken) return;
-      return fetch(firestoreBaseUrl() + '/usuarios?pageSize=100', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer ' + idToken }
-      }).then(function (res) {
-        return res.json();
-      }).then(function (data) {
-        var docs = (data && data.documents) ? data.documents : [];
-        if (!docs.length) {
-          listEl.innerHTML = '<div style="font-size:0.8rem;color:var(--detalle)">No hay usuarios registrados aún.</div>';
-          return;
-        }
-        var html = '';
-        for (var i = 0; i < docs.length; i++) {
-          var f = docs[i].fields || {};
-          var em = (f.email && f.email.stringValue) ? f.email.stringValue : '';
-          var nom = (f.nombre && f.nombre.stringValue) ? f.nombre.stringValue : '';
-          var r = (f.rol && f.rol.stringValue) ? f.rol.stringValue : 'colaborador';
-          html += '<div class="user-row">';
-          html += '<div style="min-width:0;flex:1"><strong>' + escapeHtml(em) + '</strong><br><span style="color:var(--detalle)">' + escapeHtml(nom) + '</span></div>';
-          html += '<button class="btn btn-secondary btn-small" type="button" data-pick-email="' + escapeHtml(em) + '" data-pick-role="' + escapeHtml(r) + '">' + escapeHtml(r.toUpperCase()) + '</button>';
-          html += '</div>';
-        }
-        listEl.innerHTML = html;
-      });
-    }).catch(function () {
-      listEl.innerHTML = '<div style="font-size:0.8rem;color:#C62828">Error cargando lista de usuarios.</div>';
-    });
-  }
-
-  // ---------- Topics y Dispositivo ----------
-  function topicForEdificio(edificio) {
-    if (edificio === 'Edificio ED1') return 'indrhi_ed1';
-    if (edificio === 'Edificio ED2') return 'indrhi_ed2';
-    return 'indrhi_exterior';
-  }
-
-  function applyTopicSubscriptions(edificio) {
-    safeCallArg('subscribeTopic', 'indrhi_todos', null);
-    var allEdificios = ['indrhi_ed1', 'indrhi_ed2', 'indrhi_exterior'];
-    var target = topicForEdificio(edificio);
-    for (var i = 0; i < allEdificios.length; i++) {
-      if (allEdificios[i] === target) {
-        safeCallArg('subscribeTopic', allEdificios[i], null);
-      } else {
-        safeCallArg('unsubscribeTopic', allEdificios[i], null);
-      }
-    }
-  }
-
-  function registerDeviceInFirestore(session, token) {
-    var msgEl = document.getElementById('profileSyncMsg');
-    if (!session || !session.email || !token) return;
-
-    var devId = getDeviceId();
-    var ctx = parseJson(safeCall('getContext', null)) || {};
-    var deviceModel = ((ctx.manufacturer || '') + ' ' + (ctx.model || '')).trim() || 'Android';
-
-    getValidIdToken().then(function (idToken) {
-      if (!idToken) return;
-      var payload = {
-        fields: {
-          deviceId: { stringValue: devId },
-          nombre: { stringValue: session.nombre || 'Sin nombre' },
-          correo: { stringValue: session.email },
-          rol: { stringValue: session.rol || 'colaborador' },
-          edificio: { stringValue: session.edificio || 'Edificio ED1' },
-          topicEdificio: { stringValue: topicForEdificio(session.edificio) },
-          fcmToken: { stringValue: token },
-          modelo: { stringValue: deviceModel },
-          versionApp: { stringValue: String(ctx.versionName || '1.0.0') },
-          actualizadoIso: { stringValue: new Date().toISOString() }
-        }
-      };
-
-      return fetch(firestoreBaseUrl() + '/dispositivos/' + encodeURIComponent(devId), {
-        method: 'PATCH',
-        headers: {
-          'Authorization': 'Bearer ' + idToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      }).then(function (res) {
-        if (res.ok && msgEl) {
-          msgEl.textContent = '✔ Dispositivo vinculado (' + topicForEdificio(session.edificio) + ').';
-        }
-      });
-    }).catch(function () {});
-  }
-
-  function updateLocation() {
-    var s = loadSession();
-    if (!s || !s.email) return;
-    var nuevoEdificio = document.getElementById('selEdificioPerfil').value;
-    s.edificio = nuevoEdificio;
-    saveSession(s);
-
-    applyTopicSubscriptions(nuevoEdificio);
-    renderAuthState();
-    renderFcmPanel(loadStoredFcmToken());
-
-    getValidIdToken().then(function (idToken) {
-      if (!idToken) return;
-      return upsertUserDoc(s, idToken).then(function () {
-        registerDeviceInFirestore(s, loadStoredFcmToken());
-        window.alert('Ubicación y canal de alerta actualizados.');
-      });
-    });
-  }
-
-  // ---------- Sirena ----------
-  function updateSirenStatus(playing) {
-    var el = document.getElementById('sirenStatus');
-    var txt = document.getElementById('sirenStatusText');
-    if (playing) {
-      el.classList.add('active');
-      txt.textContent = 'Sirena: ACTIVA (sonando al 100%)';
-    } else {
-      el.classList.remove('active');
-      txt.textContent = 'Sirena: detenida';
-    }
-  }
-
-  function pollSiren() {
-    if (document.hidden) return;
-    var playing = safeCall('isAlarmPlaying', false);
-    updateSirenStatus(!!playing);
-  }
-
-  function startSirenPoll() {
-    if (sirenPollTimer) return;
-    sirenPollTimer = setInterval(pollSiren, 1000);
-    pollSiren();
-  }
-
-  function onActivate() {
-    var s = loadSession();
-    if (!s || (s.rol !== 'admin' && s.rol !== 'brigadista')) {
-      window.alert('Solo usuarios con rol Brigadista o Administrador pueden activar la sirena.');
-      return;
-    }
-    var ok = window.confirm('Se activará la sirena al 100% de volumen. Si usa audífonos, retírelos.');
-    if (!ok) return;
-    var res = parseJson(safeCall('testAlarm', null));
-    if (res && res.playing) {
-      updateSirenStatus(true);
-    } else if (res && res.ok === false) {
-      window.alert('No se pudo iniciar la sirena. Revise el panel de salud.');
-    }
-  }
-
-  function onStop() {
-    safeCall('stopAlarm', null);
-    updateSirenStatus(false);
-  }
-
-  // ---------- Reportes y Sincronización Firestore ----------
-  function readReports() {
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      var arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr : [];
-    } catch (e) { return []; }
-  }
-
-  function writeReports(list) {
-    try {
-      var capped = list.slice(0, MAX_REPORTS);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(capped));
-      return capped;
-    } catch (e) { return list; }
-  }
-
-  function sendSingleReportToFirestore(report, idToken) {
-    var s = loadSession() || {};
-    var ctx = report.contexto || {};
-    var deviceModel = ((ctx.manufacturer || '') + ' ' + (ctx.model || '')).trim() || 'Android';
-
-    var payload = {
-      fields: {
-        id: { stringValue: String(report.id) },
-        tipo: { stringValue: String(report.tipo || 'No especificado') },
-        lugar: { stringValue: String(report.lugar || 'No especificado') },
-        estado: { stringValue: String(report.estado || '') },
-        nombre: { stringValue: String(s.nombre || 'Anónimo') },
-        correo: { stringValue: String(s.email || '') },
-        rol: { stringValue: String(s.rol || 'colaborador') },
-        edificioAsignado: { stringValue: String(s.edificio || '') },
-        fcmToken: { stringValue: String(loadStoredFcmToken() || '') },
-        deviceId: { stringValue: getDeviceId() },
-        dispositivo: { stringValue: deviceModel },
-        fechaIso: { stringValue: String(report.fechaIso || new Date().toISOString()) }
-      }
-    };
-
-    return fetch(firestoreBaseUrl() + '/reportes/' + encodeURIComponent(report.id), {
-      method: 'PATCH',
-      headers: {
-        'Authorization': 'Bearer ' + idToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    }).then(function (res) {
-      return res.ok;
-    }).catch(function () {
-      return false;
-    });
-  }
-
-  function syncPendingReports() {
-    if (isSyncing) return;
-    var s = loadSession();
-    if (!s || !s.email) {
-      updateCloudStatusBanner(false, 0, true);
-      return;
-    }
-
-    var list = readReports();
-    var pendingIndexes = [];
-    for (var i = 0; i < list.length; i++) {
-      if (!list[i].enviado) pendingIndexes.push(i);
-    }
-    if (!pendingIndexes.length) {
-      updateCloudStatusBanner(true, 0, false);
-      return;
-    }
-
-    isSyncing = true;
-    getValidIdToken().then(function (idToken) {
-      if (!idToken) {
-        isSyncing = false;
-        return;
-      }
-      var chain = Promise.resolve();
-      pendingIndexes.forEach(function (idx) {
-        chain = chain.then(function () {
-          var currentList = readReports();
-          var item = currentList[idx];
-          if (!item || item.enviado) return;
-          return sendSingleReportToFirestore(item, idToken).then(function (ok) {
-            if (ok) {
-              var updated = readReports();
-              if (updated[idx] && updated[idx].id === item.id) {
-                updated[idx].enviado = true;
-                writeReports(updated);
-              }
-            }
-          });
-        });
-      });
-
-      return chain.then(function () {
-        isSyncing = false;
-        var finalList = readReports();
-        var remaining = 0;
-        for (var j = 0; j < finalList.length; j++) {
-          if (!finalList[j].enviado) remaining++;
-        }
-        updateCloudStatusBanner(remaining === 0, remaining, false);
-        renderReports();
-      });
-    }).catch(function () {
-      isSyncing = false;
-      renderReports();
-    });
-  }
-
-  function updateCloudStatusBanner(allSynced, pendingCount, noAuth) {
-    var el = document.getElementById('cloudSyncStatus');
-    if (!el) return;
-    if (noAuth) {
-      el.className = 'notice';
-      el.textContent = 'Inicia sesión con tu correo @indrhi.gob.do para sincronizar los reportes con la central.';
-    } else if (allSynced) {
-      el.className = 'notice-ok';
-      el.textContent = '✔ Sesión verificada (@indrhi.gob.do). Reportes sincronizados con Cloud Firestore.';
-    } else {
-      el.className = 'notice';
-      el.textContent = '⏳ ' + pendingCount + ' reporte(s) pendientes por enviar a Firestore.';
-    }
-  }
-
-  function addReport(tipo, lugar, estado) {
-    var ctx = parseJson(safeCall('getContext', null)) || {};
-    var report = {
-      id: 'r-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
-      tipo: tipo,
-      lugar: lugar,
-      estado: estado,
-      fechaIso: new Date().toISOString(),
-      contexto: ctx,
-      enviado: false
-    };
-    var list = readReports();
-    list.unshift(report);
-    writeReports(list);
-    renderReports();
-    syncPendingReports();
-    return report;
-  }
-
-  function renderReports() {
-    var cont = document.getElementById('reportsList');
-    var list = readReports();
-    if (!list.length) {
-      cont.innerHTML = '<div style="padding:8px;color:#777">Aún no hay reportes registrados.</div>';
-      return;
-    }
-    var html = '';
-    for (var i = 0; i < list.length; i++) {
-      var r = list[i];
-      var fecha = '';
-      try { fecha = new Date(r.fechaIso).toLocaleString('es-DO'); } catch (e) { fecha = r.fechaIso || ''; }
-      var syncBadge = r.enviado
-        ? '<span class="badge-sync">✔ Enviado a nube</span>'
-        : '<span class="badge-pending">⏳ Pendiente</span>';
-      html += '<div class="report-item">';
-      html += '<div><strong>' + escapeHtml(r.tipo) + '</strong> · ' + escapeHtml(r.lugar) + ' · ' + escapeHtml(r.estado) + '</div>';
-      html += '<div class="meta">' + escapeHtml(fecha) + ' · ' + syncBadge + '</div>';
-      html += '</div>';
-    }
-    cont.innerHTML = html;
-  }
-
-  // ---------- Reporte de 3 toques ----------
-  function resetTriple() {
-    tripleSelection = { tipo: null, lugar: null, estado: null };
-    document.getElementById('selTipo').textContent = '—';
-    document.getElementById('selLugar').textContent = '—';
-    document.getElementById('selEstado').textContent = '—';
-    document.getElementById('stepTipo').classList.remove('step-hidden');
-    document.getElementById('lblLugar').classList.add('step-hidden');
-    document.getElementById('stepLugar').classList.add('step-hidden');
-    document.getElementById('lblEstado').classList.add('step-hidden');
-    document.getElementById('stepEstado').classList.add('step-hidden');
-  }
-
-  function pickTipo(tipo) {
-    tripleSelection.tipo = tipo;
-    document.getElementById('selTipo').textContent = tipo;
-    document.getElementById('stepTipo').classList.add('step-hidden');
-    document.getElementById('lblLugar').classList.remove('step-hidden');
-    document.getElementById('stepLugar').classList.remove('step-hidden');
-  }
-
-  function pickLugar(lugar) {
-    tripleSelection.lugar = lugar;
-    document.getElementById('selLugar').textContent = lugar;
-    document.getElementById('stepLugar').classList.add('step-hidden');
-    document.getElementById('lblEstado').classList.remove('step-hidden');
-    document.getElementById('stepEstado').classList.remove('step-hidden');
-  }
-
-  function pickEstado(estado) {
-    tripleSelection.estado = estado;
-    document.getElementById('selEstado').textContent = estado;
-    document.getElementById('stepEstado').classList.add('step-hidden');
-    if (tripleSelection.tipo && tripleSelection.lugar) {
-      addReport(tripleSelection.tipo, tripleSelection.lugar, estado);
-      window.alert('Reporte registrado.');
-      resetTriple();
-    }
-  }
-
-  function onSafe() {
-    var s = loadSession() || {};
-    addReport('Reporte directo', s.edificio || 'No especificado', 'A salvo');
-    window.alert('Estado "A salvo" registrado.');
-  }
-
-  function onHelp() {
-    var s = loadSession() || {};
-    addReport('Solicitud de auxilio', s.edificio || 'No especificado', 'Necesito ayuda');
-    window.alert('Solicitud "Necesito ayuda" registrada.');
-  }
-
-  // ---------- Panel de salud ----------
-  function setDot(cls) {
-    var dot = document.getElementById('healthDot');
-    dot.className = 'dot ' + cls;
-  }
-
-  function healthRow(ok, name, detail, action) {
-    var icon = ok ? '✔' : '✖';
-    var color = ok ? '#2E7D32' : '#C62828';
-    var html = '<div class="health-row">' +
-      '<span class="icon" style="color:' + color + '">' + icon + '</span>' +
-      '<div class="info"><div class="name">' + escapeHtml(name) + '</div>' +
-      '<div class="detail">' + escapeHtml(detail) + '</div></div>';
-    if (action) {
-      html += '<button class="btn btn-secondary btn-small" type="button" data-action="' + action + '">Abrir ajustes</button>';
-    }
-    html += '</div>';
-    return html;
-  }
-
-  function infoRow(name, value) {
-    return '<div class="health-row info-row">' +
-      '<span class="icon">ℹ</span>' +
-      '<div class="info"><div class="name">' + escapeHtml(name) + '</div>' +
-      '<div class="detail">' + escapeHtml(value) + '</div></div>' +
-      '</div>';
-  }
-
-  function refreshHealth() {
-    var h = parseJson(safeCall('getHealth', null));
-    if (!h) {
-      document.getElementById('healthSummaryText').textContent = 'Sin datos del puente nativo (vista previa).';
-      document.getElementById('healthRows').innerHTML = '';
-      setDot('gray');
-      return;
-    }
-
-    var notifOk = !!h.notificationsEnabled && !!h.postNotificationsGranted;
-    var dndOk = !!h.dndAccessGranted;
-    var fsOk = !!h.fullScreenIntentAllowed;
-    var batOk = !!h.batteryOptimizationIgnored;
-
-    var checks = [notifOk, dndOk, fsOk, batOk];
-    var okCount = 0;
-    for (var i = 0; i < checks.length; i++) { if (checks[i]) okCount++; }
-    var total = checks.length;
-
-    var dotClass;
-    var summaryText;
-    if (okCount === total) { dotClass = 'ok'; summaryText = 'Todos los permisos críticos están OK'; }
-    else if (okCount === 0) { dotClass = 'bad'; summaryText = 'Ningún permiso crítico configurado'; }
-    else { dotClass = 'warn'; summaryText = okCount + ' de ' + total + ' permisos críticos OK'; }
-
-    setDot(dotClass);
-    document.getElementById('healthSummaryText').textContent = summaryText;
-
-    var rows = '';
-    rows += healthRow(notifOk, 'Notificaciones', notifOk ? 'Notificaciones activas' : 'Notificaciones desactivadas o falta POST_NOTIFICATIONS', 'openNotificationSettings');
-    var dndDetail = 'Acceso a No Molestar: ' + (dndOk ? 'concedido' : 'no concedido') + ' · Filtro actual: ' + (h.interruptionFilter || 'UNKNOWN');
-    if (h.interruptionFilter === 'NONE') dndDetail += ' (¡silencio total! puede bloquear alarmas)';
-    rows += healthRow(dndOk, 'Acceso a No Molestar', dndDetail, 'openDndSettings');
-    rows += healthRow(fsOk, 'Pantalla completa sobre bloqueo', fsOk ? 'Permitido' : 'No permitido (Android 14+)', 'openFullScreenSettings');
-    rows += healthRow(batOk, 'Batería sin restricciones', batOk ? 'Exento de optimización' : 'Optimización de batería activa', 'openBatterySettings');
-    rows += infoRow('Volumen de alarma', (h.alarmVolume != null ? h.alarmVolume : '?') + ' / ' + (h.alarmVolumeMax != null ? h.alarmVolumeMax : '?'));
-    rows += infoRow('Modo de timbre', h.ringerMode || 'UNKNOWN');
-    rows += infoRow('Audífonos conectados', h.headphonesConnected ? 'Sí' : 'No');
-
-    document.getElementById('healthRows').innerHTML = rows;
-  }
-
-  function onHealthRowsClick(ev) {
-    var target = ev.target;
-    if (!target || target.tagName !== 'BUTTON') return;
-    var action = target.getAttribute('data-action');
-    if (!action) return;
-    var res = parseJson(safeCall(action, null));
-    if (res && res.ok === false) {
-      window.alert('No se pudo abrir el ajuste solicitado.');
-    }
-  }
-
-  // ---------- FCM ----------
-  function loadStoredFcmToken() {
-    try { return localStorage.getItem(FCM_STORAGE_KEY) || ''; } catch (e) { return ''; }
-  }
-
-  function saveFcmToken(token) {
-    if (!token) return;
-    try { localStorage.setItem(FCM_STORAGE_KEY, token); } catch (e) {}
-  }
-
-  function renderFcmPanel(token) {
-    var detail = document.getElementById('fcmStatusDetail');
-    var code = document.getElementById('fcmTokenValue');
-    var icon = document.getElementById('fcmStatusIcon');
-    var s = loadSession();
-    var ed = (s && s.edificio) ? s.edificio : 'Edificio ED1';
-    if (token) {
-      detail.textContent = 'Activo · Suscrito a: indrhi_todos, ' + topicForEdificio(ed);
-      icon.textContent = '✔';
-      icon.style.color = '#2E7D32';
-      code.textContent = token;
-    } else {
-      detail.textContent = 'Token aún no disponible. Pulsa "Actualizar token".';
-      icon.textContent = '✖';
-      icon.style.color = '#C62828';
-      code.textContent = '(sin token)';
-    }
-  }
-
-  function refreshFcmToken() {
-    var res = parseJson(safeCall('getFcmToken', null));
-    var token = (res && res.ok && res.token) ? res.token : loadStoredFcmToken();
-    if (token) {
-      saveFcmToken(token);
-      var s = loadSession();
-      var ed = (s && s.edificio) ? s.edificio : 'Edificio ED1';
-      applyTopicSubscriptions(ed);
-      if (s && s.email) registerDeviceInFirestore(s, token);
-    }
-    renderFcmPanel(token || '');
-  }
-
-  function copyFcmToken() {
-    var stored = loadStoredFcmToken();
-    if (!stored) { window.alert('Aún no hay token para copiar.'); return; }
-    var done = function () { window.alert('Token copiado al portapapeles.'); };
-    var fallback = function () {
-      try {
-        var ta = document.createElement('textarea');
-        ta.value = stored;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        var ok = document.execCommand('copy');
-        document.body.removeChild(ta);
-        if (ok) done(); else window.alert('Mantén pulsado el token para copiarlo manualmente.');
-      } catch (e) {
-        window.alert('Mantén pulsado el token para copiarlo manualmente.');
-      }
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(stored).then(done).catch(fallback);
-    } else {
-      fallback();
-    }
-  }
-
-  window.onFcmToken = function (token) {
-    if (!token) return;
-    saveFcmToken(token);
-    var s = loadSession();
-    var ed = (s && s.edificio) ? s.edificio : 'Edificio ED1';
-    applyTopicSubscriptions(ed);
-    if (s && s.email) registerDeviceInFirestore(s, token);
-    renderFcmPanel(token);
-  };
-
-  window.refreshHealth = refreshHealth;
-
-  // ---------- Arranque ----------
-  function bind() {
-    setPreviewBanner();
-
-    document.getElementById('btnStartUpdate').addEventListener('click', startOtaDownload);
-    document.getElementById('btnInstallDownloaded').addEventListener('click', installDownloadedOta);
-    document.getElementById('btnPublishOta').addEventListener('click', publishOtaConfig);
-
-    document.getElementById('tabLogin').addEventListener('click', function () { setAuthMode('login'); });
-    document.getElementById('tabRegister').addEventListener('click', function () { setAuthMode('register'); });
-    document.getElementById('btnAuthSubmit').addEventListener('click', handleAuthSubmit);
-    document.getElementById('btnLogout').addEventListener('click', handleLogout);
-
-    document.getElementById('btnAssignRole').addEventListener('click', assignUserRole);
-    document.getElementById('btnLoadUsers').addEventListener('click', loadRegisteredUsers);
-    document.getElementById('adminUsersList').addEventListener('click', function (ev) {
-      var t = ev.target;
-      if (t && t.tagName === 'BUTTON' && t.getAttribute('data-pick-email')) {
-        document.getElementById('adminTargetEmail').value = t.getAttribute('data-pick-email');
-        document.getElementById('adminTargetRole').value = t.getAttribute('data-pick-role') || 'colaborador';
-      }
-    });
-
-    document.getElementById('btnUpdateLocation').addEventListener('click', updateLocation);
-    document.getElementById('btnActivate').addEventListener('click', onActivate);
-    document.getElementById('btnStop').addEventListener('click', onStop);
-    document.getElementById('btnSafe').addEventListener('click', onSafe);
-    document.getElementById('btnHelp').addEventListener('click', onHelp);
-    document.getElementById('btnResetReport').addEventListener('click', resetTriple);
-    document.getElementById('btnSyncNow').addEventListener('click', syncPendingReports);
-    document.getElementById('btnRefreshHealth').addEventListener('click', refreshHealth);
-    document.getElementById('healthRows').addEventListener('click', onHealthRowsClick);
-    document.getElementById('btnRefreshFcm').addEventListener('click', refreshFcmToken);
-    document.getElementById('btnCopyFcm').addEventListener('click', copyFcmToken);
-
-    document.getElementById('stepTipo').addEventListener('click', function (ev) {
-      var t = ev.target;
-      if (t && t.tagName === 'BUTTON' && t.getAttribute('data-tipo')) pickTipo(t.getAttribute('data-tipo'));
-    });
-    document.getElementById('stepLugar').addEventListener('click', function (ev) {
-      var t = ev.target;
-      if (t && t.tagName === 'BUTTON' && t.getAttribute('data-lugar')) pickLugar(t.getAttribute('data-lugar'));
-    });
-    document.getElementById('stepEstado').addEventListener('click', function (ev) {
-      var t = ev.target;
-      if (t && t.tagName === 'BUTTON' && t.getAttribute('data-estado')) pickEstado(t.getAttribute('data-estado'));
-    });
-
-    document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) {
-        checkAppUpdate();
-        refreshHealth();
-        refreshFcmToken();
-        pollSiren();
-        var s = loadSession();
-        if (s && s.email) {
-          syncUserRoleFromFirestore(s).then(function () {
-            renderAuthState();
-            syncPendingReports();
-          });
-        }
-      }
-    });
-
-    window.addEventListener('online', syncPendingReports);
-
-    var existing = loadSession();
-    renderAuthState();
-    if (existing && existing.email) {
-      syncUserRoleFromFirestore(existing).then(function () {
-        renderAuthState();
-        syncPendingReports();
-      });
-    }
-
-    checkAppUpdate();
-    resetTriple();
-    renderReports();
-    refreshHealth();
-    renderFcmPanel(loadStoredFcmToken());
-    refreshFcmToken();
-    startSirenPoll();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bind);
-  } else {
-    bind();
-  }
+(function(){
+var B=window.IndrhiBridge,ADMIN_MAIL='ajfeliz@indrhi.gob.do';
+var FS='https://firestore.googleapis.com/v1/projects/indrhi-emergencias/databases/(default)/documents';
+var DEFAULT_APK_URL='https://github.com/angelcruz3102-hub/indrhi-emergencias-v2/releases/latest/download/app-debug.apk';
+var BRIG=['Brigada de Evacuación','Brigada de Primeros Auxilios','Brigada Contra Incendios','Brigada de Búsqueda y Rescate'];
+var UBIC=['Edificio ED1','Edificio ED2','Exterior / Regional'];
+var TOPICS={'Edificio ED1':'indrhi_ed1','Edificio ED2':'indrhi_ed2','Exterior / Regional':'indrhi_exterior'};
+var ROOMS=[{id:'grupo_general',nombre:'Chat General INDRHI'},{id:'grupo_brigadistas',nombre:'Brigadistas INDRHI'},{id:'grupo_seguridad',nombre:'Seguridad INDRHI'},{id:'grupo_ed1',nombre:'Edificio ED1'},{id:'grupo_ed2',nombre:'Edificio ED2'}];
+var TIPOS=['Información','Curso','Reunión','Encuesta','Reporte'];
+var DEST=['Todos','Edificio ED1','Edificio ED2','Brigadistas','Seguridad'];
+var IC={
+ alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18h.01"/></svg>',
+ board:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+ chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-12 7l-5 1 1-4a8 8 0 1 1 16-4z"/></svg>',
+ user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>'};
+var S={tab:'emg',filter:'Todos',session:null,posts:[],users:[],groups:[],room:null,msgs:[],ver:null,health:null,fcm:'',upd:'',updState:'',sirena:false,R:{step:0},mode:'login',busy:false,cfg:null,adminQ:''};
+var $=function(s){return document.querySelector(s)};
+function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function ls(k,v){try{if(v===undefined){return JSON.parse(localStorage.getItem(k))}localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
+function br(n,a){try{if(B&&typeof B[n]==='function'){return B[n].apply(B,a||[])}}catch(e){}return null}
+function brj(n){var r=br(n);try{return typeof r==='string'?JSON.parse(r):r}catch(e){return null}}
+var tt;function toast(m,k){var t=$('#toast');t.textContent=m;t.className='on '+(k||'');clearTimeout(tt);tt=setTimeout(function(){t.className=''},3200)}
+function closeOv(){$('#ov').innerHTML=''}
+function openModal(h,c){$('#ov').innerHTML='<div class="ov" data-act="ovclose"><div class="modal '+(c?'c':'')+'">'+h+'</div></div>'}
+function confirmM(title,text,ok,color){
+ S._ok=ok;openModal('<div class="ic">'+IC.alert.replace('<svg','<svg width="28" height="28"')+'</div><h2>'+esc(title)+'</h2><p class="mut">'+esc(text)+'</p><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn '+(color||'red')+'" data-act="okc">Confirmar</button></div>',true)}
+function getDevId(){var id=ls('indrhi.deviceId');if(!id){id='dev-'+Date.now()+'-'+Math.floor(Math.random()*1000000);ls('indrhi.deviceId',id)}return id}
+/* ---------- Firestore ---------- */
+function toFS(v){if(v===null||v===undefined)return{nullValue:null};if(typeof v==='string')return{stringValue:v};if(typeof v==='boolean')return{booleanValue:v};if(typeof v==='number')return Math.floor(v)===v?{integerValue:String(v)}:{doubleValue:v};if(Array.isArray(v))return{arrayValue:{values:v.map(toFS)}};var f={};for(var k in v)f[k]=toFS(v[k]);return{mapValue:{fields:f}}}
+function fromFS(v){if('stringValue'in v)return v.stringValue;if('integerValue'in v)return Number(v.integerValue);if('doubleValue'in v)return v.doubleValue;if('booleanValue'in v)return v.booleanValue;if('arrayValue'in v)return(v.arrayValue.values||[]).map(fromFS);if('mapValue'in v)return fields(v.mapValue.fields||{});return null}
+function fields(f){var o={};for(var k in f)o[k]=fromFS(f[k]);return o}
+function doc(d){var o=fields(d.fields||{});o.id=decodeURIComponent(d.name.split('/').pop());return o}
+function toFields(o){var f={};for(var k in o)f[k]=toFS(o[k]);return f}
+function cfg(){if(S.cfg)return S.cfg;var c=brj('getFirebaseConfig');S.cfg=(c&&c.apiKey)?c:{apiKey:'',projectId:'indrhi-emergencias'};return S.cfg}
+function http(method,url,body,auth,retry){
+ return Promise.resolve(auth?ensure():null).then(function(){
+  var h={'Content-Type':'application/json'};if(auth&&S.session)h.Authorization='Bearer '+S.session.idToken;
+  return fetch(url,{method:method,headers:h,body:body?JSON.stringify(body):undefined})}).then(function(r){
+  return r.json().catch(function(){return{}}).then(function(j){
+   if(r.status===401&&auth&&!retry&&S.session){S.session.expiresAt=0;return http(method,url,body,auth,true)}
+   if(!r.ok)throw new Error((j.error&&(j.error.message||j.error))||('HTTP '+r.status));return j})})}
+function ensure(){var s=S.session;if(!s||!s.refreshToken||Date.now()<s.expiresAt-60000)return;
+ return fetch('https://securetoken.googleapis.com/v1/token?key='+cfg().apiKey,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(s.refreshToken)}).then(function(r){return r.json()}).then(function(j){
+  if(j.id_token){s.idToken=j.id_token;s.refreshToken=j.refresh_token||s.refreshToken;s.expiresAt=Date.now()+Number(j.expires_in)*1000;saveSession()}}).catch(function(){})}
+function fsList(col,qs){return http('GET',FS+'/'+col+(qs?'?'+qs:''),null,true).then(function(j){return(j.documents||[]).map(doc)})}
+function fsGet(p){return http('GET',FS+'/'+p,null,true).then(doc)}
+function fsAdd(col,o,id){return http('POST',FS+'/'+col+(id?'?documentId='+encodeURIComponent(id):''),{fields:toFields(o)},true)}
+function fsSet(p,o,mask){var q=mask?'?'+mask.map(function(m){return'updateMask.fieldPaths='+encodeURIComponent(m)}).join('&'):'';return http('PATCH',FS+'/'+p+q,{fields:toFields(o)},true)}
+/* ---------- Sesión ---------- */
+function saveSession(){var s=S.session;if(!s)return;var p=s.profile||{};var j=JSON.stringify({email:s.email,uid:s.uid,idToken:s.idToken,refreshToken:s.refreshToken,expiresAt:s.expiresAt,nombre:p.nombre||'',edificio:p.ubicacion||'',rol:p.rol||'colaborador',subArea:p.subArea||'',rolSolicitado:p.rolSolicitado||'',profile:p});try{localStorage.setItem('indrhi.authSession',j)}catch(e){}br('saveAuthSession',[j])}
+function loadSession(){var j=br('getAuthSession'),l=null,o=null;try{l=localStorage.getItem('indrhi.authSession')}catch(e){}
+ if(typeof j==='string'&&j&&j!=='null'){try{o=JSON.parse(j)}catch(e){o=null}}
+ if(!o||!o.email){try{o=l?JSON.parse(l):null}catch(e){o=null}}
+ if(!o||!o.email)return null;
+ var p=o.profile||{};p.email=o.email;p.uid=o.uid;p.nombre=p.nombre||o.nombre||o.email.split('@')[0];p.ubicacion=p.ubicacion||o.edificio||UBIC[0];p.rol=p.rol||o.rol||'colaborador';p.subArea=p.subArea||o.subArea||'';if(o.rolSolicitado&&!p.rolSolicitado)p.rolSolicitado=o.rolSolicitado;
+ o.profile=p;S.session=o;saveSession();return o}
+function me(){return S.session&&S.session.profile||{}}
+function rol(){return me().rol||'colaborador'}
+function canPub(){return['admin','brigadista','seguridad'].indexOf(rol())>=0}
+function isAdm(){var p=me();return p.rol==='admin'&&(p.subArea==='Tecnología'||p.subArea==='Recursos Humanos'||p.email===ADMIN_MAIL)}
+function tag(p){return p.rol==='brigadista'?(p.subArea||'Brigadista'):p.rol==='admin'?('Admin'+(p.subArea?' · '+p.subArea:'')):p.rol==='seguridad'?'Seguridad':'Colaborador'}
+function authErr(m){var x={EMAIL_EXISTS:'Ese correo ya está registrado.',INVALID_LOGIN_CREDENTIALS:'Correo o contraseña incorrectos.',INVALID_PASSWORD:'Contraseña incorrecta.',EMAIL_NOT_FOUND:'No existe una cuenta con ese correo.',WEAK_PASSWORD:'La contraseña debe tener al menos 6 caracteres.'};
+ for(var k in x)if(String(m).indexOf(k)===0)return x[k];return 'No se pudo completar: '+m}
+function doLogin(){
+ if(S.busy)return;
+ var e=$('#a-mail').value.trim().toLowerCase(),p=$('#a-pass').value;
+ if(!/@indrhi\.gob\.do$/.test(e))return toast('Usa tu correo @indrhi.gob.do','err');if(!p)return toast('Escribe tu contraseña','err');
+ if(!cfg().apiKey)return toast('Sin conexión con la app: abre INDRHI Emergencias en el teléfono','err');
+ S.busy=true;http('POST','https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='+cfg().apiKey,{email:e,password:p,returnSecureToken:true}).then(function(j){
+  S.session={idToken:j.idToken,refreshToken:j.refreshToken,uid:j.localId,email:e,expiresAt:Date.now()+Number(j.expiresIn)*1000,profile:{email:e}};
+  var uPath='usuarios/'+encodeURIComponent(e);
+  return fsGet(uPath).catch(function(){var pr={uid:j.localId,nombre:e.split('@')[0],email:e,ubicacion:UBIC[0],edificio:UBIC[0],rol:e===ADMIN_MAIL?'admin':'colaborador',subArea:e===ADMIN_MAIL?'Tecnología':''};return fsSet(uPath,pr).then(function(){return pr})})
+ }).then(function(pr){
+  pr.ubicacion=pr.ubicacion||pr.edificio||UBIC[0];
+  S.session.profile=pr;
+  if(e===ADMIN_MAIL&&pr.rol!=='admin'){pr.rol='admin';pr.subArea=pr.subArea||'Tecnología';fsSet('usuarios/'+encodeURIComponent(e),pr,['rol','subArea'])}
+  saveSession();start()
+ }).catch(function(x){toast(authErr(x.message),'err')}).then(function(){S.busy=false})}
+function doReg(){
+ if(S.busy)return;
+ var n=$('#r-name').value.trim(),e=$('#r-mail').value.trim().toLowerCase(),p=$('#r-pass').value,u=$('#r-ub').value,r=$('#r-rol').value,s=$('#r-sub')?$('#r-sub').value:'';
+ if(!n)return toast('Escribe tu nombre completo','err');if(!/@indrhi\.gob\.do$/.test(e))return toast('Solo se permiten correos @indrhi.gob.do','err');
+ if(p.length<6)return toast('La contraseña debe tener al menos 6 caracteres','err');if((r==='brigadista'||r==='admin')&&!s)return toast('Elige '+(r==='admin'?'el departamento':'tu brigada'),'err');
+ if(!cfg().apiKey)return toast('Sin conexión con la app: abre INDRHI Emergencias en el teléfono','err');
+ var pr={nombre:n,email:e,ubicacion:u,edificio:u,rol:'colaborador',subArea:''};
+ if(e===ADMIN_MAIL){pr.rol='admin';pr.subArea=s||'Tecnología'}else if(r==='brigadista'){pr.rol='brigadista';pr.subArea=s}else if(r==='seguridad'){pr.rol='seguridad'}else if(r==='admin'){pr.rolSolicitado='admin';pr.subArea=s}
+ S.busy=true;http('POST','https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+cfg().apiKey,{email:e,password:p,returnSecureToken:true}).then(function(j){
+  pr.uid=j.localId;S.session={idToken:j.idToken,refreshToken:j.refreshToken,uid:j.localId,email:e,expiresAt:Date.now()+Number(j.expiresIn)*1000,profile:pr};
+  return fsSet('usuarios/'+encodeURIComponent(e),pr)}).then(function(){saveSession();start();if(pr.rolSolicitado)toast('Solicitud de Administrador enviada. Un admin de Tecnología o RRHH debe aprobarla.','ok')}).catch(function(x){S.session=null;toast(authErr(x.message),'err')}).then(function(){S.busy=false})}
+function logout(){confirmM('Cerrar sesión','Dejarás de recibir avisos en este teléfono hasta que vuelvas a entrar.',function(){br('clearAuthSession');try{localStorage.removeItem('indrhi.authSession')}catch(e){}S.session=null;clearInterval(S.poll);render()},'blue')}
+/* ---------- Arranque ---------- */
+function readToken(){var r=brj('getFcmToken');var t=(r&&r.ok&&r.token)?r.token:(typeof r==='string'&&r.charAt(0)!=='{'?r:'');if(t){S.fcm=t;try{localStorage.setItem('indrhi.fcmToken',t)}catch(e){}}else if(!S.fcm){try{S.fcm=localStorage.getItem('indrhi.fcmToken')||''}catch(e){}}return S.fcm}
+function topics(){var t=TOPICS[me().ubicacion];br('subscribeTopic',['indrhi_todos']);for(var k in TOPICS){if(TOPICS[k]===t)br('subscribeTopic',[t]);else br('unsubscribeTopic',[TOPICS[k]])}}
+function syncDevice(){if(!S.session||!S.fcm)return;var cx=brj('getContext')||{},p=me(),devId=getDevId(),mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android';
+ fsSet('dispositivos/'+encodeURIComponent(devId),{deviceId:devId,nombre:p.nombre||'',correo:S.session.email,rol:p.rol||'colaborador',subArea:p.subArea||'',edificio:p.ubicacion||UBIC[0],topicEdificio:TOPICS[p.ubicacion]||'indrhi_ed1',fcmToken:S.fcm,modelo:mod,versionApp:String(cx.versionName||'1.0.0'),actualizadoIso:new Date().toISOString()}).catch(function(){})}
+function start(){S.tab='emg';topics();readToken();loadAll();syncDevice();render();syncQ();
+ clearInterval(S.poll);S.poll=setInterval(function(){if(Date.now()-(S.lb||0)>30000){S.lb=Date.now();bg()}S.sirena=br('isAlarmPlaying')===true;if(S.tab==='emg')updSiren();if(S.tab==='chat'&&S.room)loadMsgs()},4000)}
+function bg(){if(!S.session)return;Promise.resolve(ensure()).then(syncQ)}
+function loadAll(){
+ fsGet('usuarios/'+encodeURIComponent(S.session.email)).then(function(p){if(p&&p.email&&S.session){p.ubicacion=p.ubicacion||p.edificio||UBIC[0];S.session.profile=Object.assign({},S.session.profile,p);saveSession();syncDevice();render()}}).catch(function(){});
+ fsGet('config/version').then(function(v){S.ver=v;render()}).catch(function(){});
+ fsList('comunicados','orderBy=creado%20desc&pageSize=60').then(function(a){S.posts=a;if(S.tab==='board')render()}).catch(function(){});
+ fsList('usuarios','pageSize=300').then(function(a){S.users=a;if(S.tab==='me'||S.tab==='chat')render()}).catch(function(){});
+ fsList('chat_grupos','pageSize=100').then(function(a){S.groups=a}).catch(function(){});
+ S.health=brj('getHealth');S.sirena=br('isAlarmPlaying')===true}
+window.onFcmToken=function(t){if(!t)return;S.fcm=t;try{localStorage.setItem('indrhi.fcmToken',t)}catch(e){}if(S.tab==='me')render();syncDevice()};
+window.onUpdateDownloadState=function(st,d){S.updState=st;S.upd=d||st;if(S.tab==='emg'||S.tab==='me')render()};
+window.refreshHealth=function(){S.health=brj('getHealth');if(S.tab==='me')render()};
+/* ---------- Reportes ---------- */
+function queue(){return ls('indrhi.reportes')||[]}
+function syncQ(){var q=queue();q.filter(function(r){return!r.synced}).forEach(function(r){
+ var o={};for(var k in r)if(k!=='synced'&&k!=='id')o[k]=r[k];
+ fsAdd('reportes',o,r.id).then(function(){r.synced=true;ls('indrhi.reportes',q);if(S.tab==='emg')render()}).catch(function(){})})}
+function sendReport(o){var cx=brj('getContext')||{},mod=((cx.manufacturer||'')+' '+(cx.model||'')).trim()||'Android',now=new Date().toISOString();
+ o.id='r'+Date.now();o.uid=S.session.uid;o.email=S.session.email;o.correo=S.session.email;o.nombre=me().nombre||'';o.rol=rol();o.subArea=me().subArea||'';o.ubicacion=me().ubicacion||'';o.edificioAsignado=me().ubicacion||'';o.fcmToken=S.fcm||'';o.deviceId=getDevId();o.dispositivo=mod;o.creado=now;o.fechaIso=now;o.synced=false;
+ var q=queue();q.unshift(o);ls('indrhi.reportes',q.slice(0,50));render();syncQ();toast('Reporte enviado','ok')}
+/* ---------- Render ---------- */
+function render(){
+ var a=$('#app');
+ if(!S.session){a.innerHTML=authView();return}
+ var v=S.tab==='emg'?emgView():S.tab==='board'?boardView():S.tab==='chat'?chatView():meView();
+ var nav=[['emg','Emergencia','alert'],['board','Tablón','board'],['chat','Chat','chat'],['me',isAdm()?'Perfil / Admin':'Perfil','user']].map(function(n){return'<button class="'+(S.tab===n[0]?'on':'')+'" data-act="tab" data-a="'+n[0]+'" aria-label="'+n[1]+'">'+IC[n[2]]+'<span>'+n[1]+'</span></button>'}).join('');
+ var y=a.querySelector('main'),st=y?y.scrollTop:0,actId=document.activeElement?document.activeElement.id:'',selPos=actId==='aq'?document.activeElement.selectionStart:null;
+ a.innerHTML='<header class="top"><div><b>INDRHI Emergencias</b><small>'+esc(me().nombre||'')+' · '+esc(tag(me()))+'</small></div></header><main>'+v+'</main><nav class="bot">'+nav+'</nav>';
+ if(actId==='aq'){var aq=$('#aq');if(aq){aq.focus();if(selPos!==null)aq.setSelectionRange(selPos,selPos)}}
+ if(S.tab==='chat'){var m=$('.msgs');if(m)m.scrollTop=m.scrollHeight}else{var y2=a.querySelector('main');if(y2)y2.scrollTop=st}}
+function authView(){
+ var l=S.mode==='login';
+ return'<div class="auth"><h1>INDRHI Emergencias</h1><p class="mut">Acceso para personal del Instituto Nacional de Recursos Hidráulicos.</p><div class="tabs"><button class="'+(l?'on':'')+'" data-act="mode" data-a="login">Iniciar sesión</button><button class="'+(l?'':'on')+'" data-act="mode" data-a="reg">Registrarse</button></div>'+(l?
+ '<label>Correo institucional</label><input id="a-mail" type="email" autocomplete="username" placeholder="usuario@indrhi.gob.do"><label>Contraseña</label><input id="a-pass" type="password" autocomplete="current-password"><button class="btn" data-act="login">Entrar</button>':
+ '<label>Nombre completo</label><input id="r-name" autocomplete="name"><label>Correo institucional</label><input id="r-mail" type="email" placeholder="usuario@indrhi.gob.do"><label>Contraseña (mínimo 6)</label><input id="r-pass" type="password" autocomplete="new-password"><label>Ubicación habitual</label><select id="r-ub">'+UBIC.map(function(u){return'<option>'+u+'</option>'}).join('')+'</select><label>Rol</label><select id="r-rol" data-chg="rol"><option value="colaborador">Colaborador General</option><option value="brigadista">Brigadista</option><option value="seguridad">Seguridad</option><option value="admin">Administrador</option></select><div id="r-subw"></div><button class="btn" data-act="reg">Crear cuenta</button>')+'</div>'}
+function emgView(){
+ var h='',v=S.ver;
+ if(v&&v.latestVersionCode){var cx=brj('getContext')||{},cur=Number(cx.versionCode||cx.appVersionCode||0);if(Number(v.latestVersionCode)>cur){var ready=S.updState==='ready'||S.updState==='permission_required';h+='<div class="banner"><b>Nueva versión '+esc(v.latestVersionName||'')+'</b><div style="font-size:13px">'+esc(v.releaseNotes||'')+'</div>'+(S.upd?'<div style="font-size:13px;margin-top:6px">'+esc(S.upd)+'</div>':'')+'<button class="btn" data-act="upd">'+(ready?'Instalar ahora':'Actualizar')+'</button></div>'}}
+ h+='<div class="card"><div class="siren"><div id="dot" class="dot '+(S.sirena?'on':'')+'"></div><div><h2 id="stx" style="margin:0">'+(S.sirena?'Sirena activa al 100%':'Sirena detenida')+'</h2><span class="mut">Estado en este teléfono</span></div></div><div class="row" style="margin-top:12px">'+(canPub()?'<button class="btn red" data-act="siren">Activar sirena roja</button>':'')+'<button class="btn gray" data-act="stop">Detener sirena</button></div></div>';
+ h+='<div class="row"><button class="btn green" data-act="quick" data-a="safe">Estoy a salvo</button><button class="btn red" data-act="quick" data-a="help">Necesito ayuda</button></div>';
+ h+='<div class="card" style="margin-top:12px"><h2>Reporte rápido</h2>'+quickRep()+'</div>';
+ var q=queue().filter(function(r){return r.email===S.session.email}).slice(0,5);
+ h+='<div class="card"><h2>Tus reportes recientes</h2>'+(q.length?q.map(function(r){return'<div class="hl"><div style="flex:1"><b>'+esc(r.tipo)+'</b><div class="mut">'+esc(r.lugar||'')+' · '+esc(r.estado||'')+' · '+new Date(r.creado).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'})+'</div></div><span class="badge '+(r.synced?'g':'a')+'">'+(r.synced?'Enviado':'Pendiente')+'</span></div>'}).join(''):'<p class="mut">Aún no has enviado reportes.</p>')+'</div>';
+ return h}
+function quickRep(){var R=S.R,o,t;
+ if(R.step===0){t='Paso 1 de 3: ¿Qué pasó?';o=['Incendio','Sismo','Inundación','Accidente','Otro']}
+ else if(R.step===1){t='Paso 2 de 3: ¿Dónde estás?';o=['Edificio ED1','Edificio ED2','Exterior','Otro lugar']}
+ else{t='Paso 3 de 3: ¿Cómo estás?';o=['Estoy bien','Herido/a','Atrapado/a','Hay otras personas afectadas']}
+ return'<p class="mut">'+t+'</p>'+o.map(function(x){return'<button class="opt" data-act="rstep" data-a="'+esc(x)+'">'+esc(x)+'</button>'}).join('')+(R.step?'<button class="btn gray sm" data-act="rback">Volver</button>':'')}
+function updSiren(){var d=$('#dot'),s=$('#stx');if(d)d.className='dot'+(S.sirena?' on':'');if(s)s.textContent=S.sirena?'Sirena activa al 100%':'Sirena detenida'}
+function visible(p){var m=me();if(rol()==='admin')return true;var d=p.destino||'Todos';return d==='Todos'||d===m.ubicacion||(d==='Brigadistas'&&m.rol==='brigadista')||(d==='Seguridad'&&m.rol==='seguridad')}
+function boardView(){
+ var f=S.filter,l=S.posts.filter(function(p){return visible(p)&&(f==='Todos'||p.tipo===f)});
+ var h='<div class="wrap" style="margin-bottom:12px">'+['Todos'].concat(TIPOS).map(function(t){return'<button class="chip '+(f===t?'on':'')+'" data-act="filter" data-a="'+t+'">'+t+'</button>'}).join('')+'</div>';
+ if(canPub())h+='<button class="btn" style="margin-bottom:12px" data-act="pubform">Publicar comunicado</button>';
+ if(!l.length)h+='<div class="card mut">No hay comunicados en esta categoría.</div>';
+ l.forEach(function(p){h+='<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><span class="badge b">'+esc(p.tipo)+'</span><span class="mut">'+esc(p.destino||'Todos')+'</span></div><h3 style="margin-top:8px">'+esc(p.titulo)+'</h3><p style="margin:0 0 8px">'+esc(p.descripcion)+'</p>';
+  if(p.tipo==='Curso'||p.tipo==='Reunión'){if(p.fecha)h+='<div class="mut">Fecha: '+esc(p.fecha)+'</div>';if(p.enlace)h+='<a class="btn sm" style="display:inline-block;text-decoration:none;margin-top:8px" href="'+esc(p.enlace)+'" target="_blank" rel="noopener">'+(p.tipo==='Curso'?'Abrir material':'Unirme a la reunión')+'</a>'}
+  if(p.tipo==='Encuesta'&&p.opciones){var v=p.votos||{},ks=Object.keys(v),tot=ks.length,mine=v[S.session.uid];
+   p.opciones.forEach(function(o,i){var c=ks.filter(function(k){return v[k]===i}).length,pc=tot?Math.round(c*100/tot):0;h+='<div class="bar" data-act="vote" data-a="'+p.id+'" data-i="'+i+'"><i style="width:'+pc+'%;'+(mine===i?'background:#93C5FD':'')+'"></i><span><b>'+esc(o)+(mine===i?' ✓':'')+'</b><span>'+pc+'% ('+c+')</span></span></div>'});h+='<div class="mut">'+tot+' voto'+(tot===1?'':'s')+(mine===undefined?' · toca una opción para votar':'')+'</div>'}
+  h+='<div class="mut" style="margin-top:6px">'+esc(p.autor||'')+' · '+(p.creado?new Date(p.creado).toLocaleDateString('es-DO'):'')+'</div></div>'});
+ return h}
+function allRooms(){var m=me(),g=S.groups.filter(function(x){return(x.miembros||[]).indexOf(S.session.email)>=0||x.creador===S.session.email}).map(function(x){return{id:x.id,nombre:x.nombre,custom:true}});
+ return ROOMS.filter(function(r){return r.id==='grupo_general'||(r.id==='grupo_brigadistas'&&(m.rol==='brigadista'||m.rol==='admin'))||(r.id==='grupo_seguridad'&&(m.rol==='seguridad'||m.rol==='admin'))||(r.id==='grupo_ed1'&&m.ubicacion===UBIC[0])||(r.id==='grupo_ed2'&&m.ubicacion===UBIC[1])||m.rol==='admin'}).concat(g)}
+function chatView(){
+ if(!S.room){return'<button class="btn" style="margin-bottom:12px" data-act="newgroup">+ Crear grupo</button>'+allRooms().map(function(r){return'<button class="opt" data-act="room" data-a="'+r.id+'" data-n="'+esc(r.nombre)+'">'+esc(r.nombre)+'</button>'}).join('')}
+ return'<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn gray sm" data-act="rooms">Salas</button><b>'+esc(S.room.nombre)+'</b></div><div class="msgs" id="msgs">'+msgsHtml()+'</div><div class="row" style="margin-top:8px;align-items:center"><input id="cm" placeholder="Escribe un mensaje" style="margin:0;flex:4"><button class="btn sm" style="flex:1" data-act="send">Enviar</button></div>'}
+function msgsHtml(){return S.msgs.length?S.msgs.map(function(m){var own=m.email===S.session.email;return'<div class="msg '+(own?'me':'')+'"><small><b>'+esc(own?'Tú':m.nombre)+'</b> '+esc(m.etiqueta||'')+'</small>'+esc(m.texto)+'<small>'+(m.creado?new Date(m.creado).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'}):'')+'</small></div>'}).join(''):'<p class="mut">Aún no hay mensajes. Escribe el primero.</p>'}
+function loadMsgs(){if(!S.room)return;var id=S.room.id;fsList('chat_grupos/'+id+'/mensajes','orderBy=creado%20desc&pageSize=60').then(function(a){if(!S.room||S.room.id!==id)return;var n=a.reverse(),ch=JSON.stringify(n)!==JSON.stringify(S.msgs);S.msgs=n;var b=$('#msgs');if(b&&ch){var bot=b.scrollTop+b.clientHeight>=b.scrollHeight-40;b.innerHTML=msgsHtml();if(bot)b.scrollTop=b.scrollHeight}}).catch(function(){})}
+function meView(){
+ var p=me(),h='<div class="card"><h2>'+esc(p.nombre||'')+'</h2><div class="mut">'+esc(p.email||'')+'</div><div class="wrap" style="margin:8px 0"><span class="badge b">'+esc(tag(p))+'</span>'+(p.rolSolicitado?'<span class="badge a">Administrador pendiente de aprobación</span>':'')+'</div><label>Ubicación habitual</label><select data-chg="ub">'+UBIC.map(function(u){return'<option '+(u===p.ubicacion?'selected':'')+'>'+u+'</option>'}).join('')+'</select><button class="btn gray" data-act="logout">Cerrar sesión</button></div>';
+ var H=S.health,rows='';
+ if(H&&typeof H==='object'){var LB={notif:['Notificaciones','openNotificationSettings'],dnd:['No molestar (permitido)','openDndSettings'],full:['Alertas a pantalla completa','openFullScreenSettings'],batt:['Sin ahorro de batería','openBatterySettings'],inst:['Instalar actualizaciones','openUnknownSourcesSettings']};
+  for(var k in H){if(typeof H[k]!=='boolean')continue;var key=/notif/i.test(k)?'notif':/dnd|disturb/i.test(k)?'dnd':/full/i.test(k)?'full':/batt|optim/i.test(k)?'batt':/install|unknown/i.test(k)?'inst':null;var ok=H[k];
+   rows+='<div class="hl"><span class="led '+(ok?'g':'r')+'"></span><div style="flex:1">'+esc(key?LB[key][0]:k)+'</div>'+(!ok&&key?'<button class="btn sm gray" data-act="bridge" data-a="'+LB[key][1]+'">Abrir ajustes</button>':'')+'</div>'}}
+ h+='<div class="card"><h2>Salud del teléfono</h2>'+(rows||'<p class="mut">Disponible solo dentro de la app instalada.</p>')+'<button class="btn gray sm" data-act="health" style="margin-top:8px">Revisar de nuevo</button></div>';
+ h+='<div class="card"><h2>Token FCM</h2><div class="pre">'+esc(S.fcm||'Sin token todavía')+'</div><div class="row"><button class="btn gray sm" data-act="copy">Copiar</button><button class="btn gray sm" data-act="fcm">Actualizar</button></div></div>';
+ if(isAdm())h+=adminView();
+ return h}
+function adminView(){
+ var q=S.adminQ.toLowerCase(),us=S.users.filter(function(u){return!q||((u.nombre||'')+(u.email||'')).toLowerCase().indexOf(q)>=0}),cx=brj('getContext')||{},nextC=Number(cx.versionCode||2)+1;
+ var h='<div class="card"><h2>Administración de usuarios</h2><input id="aq" placeholder="Buscar por nombre o correo" value="'+esc(S.adminQ)+'" oninput="window._onAq(this.value)">';
+ us.forEach(function(u){var sa=u.subArea||'',uidSafe=esc(u.id);h+='<div class="card" style="box-shadow:none;border:1px solid var(--bd)"><b>'+esc(u.nombre)+'</b><div class="mut">'+esc(u.email)+'</div><div class="wrap" style="margin:6px 0"><span class="badge b">'+esc(tag(u))+'</span>'+(u.rolSolicitado?'<span class="badge a">Pide: Administrador</span>':'')+'</div>'+
+  (u.rolSolicitado?'<button class="btn green sm" data-act="approve" data-a="'+uidSafe+'">Aprobar administrador</button> ':'')+
+  '<div class="row"><select data-role-for="'+uidSafe+'">'+['colaborador','brigadista','seguridad','admin'].map(function(r){return'<option '+(r===u.rol?'selected':'')+'>'+r+'</option>'}).join('')+'</select><select data-sub-for="'+uidSafe+'"><option value="">Sin sub-área</option>'+BRIG.concat(['Tecnología','Recursos Humanos']).map(function(s){return'<option '+(s===sa?'selected':'')+'>'+s+'</option>'}).join('')+'</select></div><button class="btn sm" data-act="saverole" data-a="'+uidSafe+'">Guardar rol</button></div>'});
+ h+='</div><div class="card"><h2>Correos de comunicados</h2><label>URL del webhook (Google Apps Script)</label><input id="wh" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.webhook||'')+'"><button class="btn" data-act="savewh">Guardar webhook</button></div>';
+ h+='<div class="card"><h2>Publicar actualización (OTA)</h2><label>Código de versión</label><input id="v-code" type="number" value="'+nextC+'"><label>Nombre de versión</label><input id="v-name" placeholder="Ej. 1.2.0"><label>URL del APK</label><input id="v-url" type="url" value="'+DEFAULT_APK_URL+'"><label>Notas</label><textarea id="v-notes" rows="3"></textarea><button class="btn amber" data-act="pubver">Publicar versión</button></div>';
+ return h}
+window._onAq=function(val){S.adminQ=val;render()};
+/* ---------- Acciones ---------- */
+var A={
+ mode:function(a){S.mode=a;render();if(a==='reg')subw()},
+ login:doLogin,reg:doReg,logout:logout,
+ tab:function(a){S.tab=a;if(a!=='chat')S.room=null;if(a==='me'){S.health=brj('getHealth');loadWh()}if(a==='board')loadAll();render()},
+ filter:function(a){S.filter=a;render()},
+ cancel:closeOv,ovclose:function(a,el,e){if(e.target===el)closeOv()},
+ okc:function(){var f=S._ok;closeOv();if(f)f()},
+ siren:function(){confirmM('¿Activar la sirena roja?','Sonará la alarma de evacuación al 100% en este teléfono. Úsala solo en una emergencia real.',function(){br('testAlarm');S.sirena=true;render();toast('Sirena activada','ok')})},
+ stop:function(){br('stopAlarm');S.sirena=false;render();toast('Sirena detenida','ok')},
+ quick:function(a){var s=a==='safe';confirmM(s?'¿Confirmas que estás a salvo?':'¿Confirmas que necesitas ayuda?','Se enviará un reporte con tu nombre y ubicación a Seguridad y Brigadas. Evita falsas alarmas.',function(){sendReport({tipo:s?'Estoy a salvo':'Necesito ayuda',lugar:me().ubicacion,estado:s?'A salvo':'Necesito ayuda'})},s?'green':'red')},
+ rstep:function(a){var R=S.R;if(R.step===0){R.tipo=a;R.step=1}else if(R.step===1){R.lugar=a;R.step=2}else{R.estado=a;confirmM('¿Enviar este reporte?',R.tipo+' · '+R.lugar+' · '+a,function(){var o={tipo:R.tipo,lugar:R.lugar,estado:R.estado};S.R={step:0};sendReport(o)},'blue');return}render()},
+ rback:function(){S.R.step=Math.max(0,S.R.step-1);render()},
+ upd:function(){if(S.updState==='ready'||S.updState==='permission_required')return br('installPendingUpdate');if(br('canInstallPackages')===false){toast('Permite instalar apps desconocidas y vuelve a tocar Actualizar');return br('openUnknownSourcesSettings')}br('downloadAndInstallUpdate',[S.ver.apkUrl]);toast('Descargando actualización…')},
+ vote:function(a,el){var i=Number(el.getAttribute('data-i')),uid=S.session.uid,p=S.posts.filter(function(x){return x.id===a})[0];if(!p)return;
+  var v=p.votos||{};v[uid]=i;p.votos=v;render();var f={};f[uid]={integerValue:String(i)};
+  http('PATCH',FS+'/comunicados/'+a+'?updateMask.fieldPaths='+encodeURIComponent('votos.'+uid),{fields:{votos:{mapValue:{fields:f}}}},true).then(function(){toast('Voto registrado','ok')}).catch(function(){toast('No se pudo guardar el voto','err')})},
+ pubform:function(){openModal('<h2>Publicar comunicado</h2><label>Tipo</label><select id="p-tipo" data-chg="ptipo">'+TIPOS.map(function(t){return'<option>'+t+'</option>'}).join('')+'</select><label>Título</label><input id="p-tit"><label>Descripción</label><textarea id="p-des" rows="3"></textarea><div id="p-ex"></div><label>Público destino</label><select id="p-dest">'+DEST.map(function(t){return'<option>'+t+'</option>'}).join('')+'</select><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn" data-act="publish">Publicar</button></div>')},
+ publish:function(){var t=$('#p-tipo').value,o={tipo:t,titulo:$('#p-tit').value.trim(),descripcion:$('#p-des').value.trim(),destino:$('#p-dest').value,autor:me().nombre,autorEmail:S.session.email,creado:new Date().toISOString()};
+  if(!o.titulo)return toast('Escribe un título','err');
+  if(t==='Curso'||t==='Reunión'){o.fecha=$('#p-fec').value;o.enlace=$('#p-lnk').value.trim()}
+  if(t==='Encuesta'){o.opciones=$('#p-opc').value.split('\n').map(function(x){return x.trim()}).filter(Boolean);if(o.opciones.length<2)return toast('Escribe al menos 2 opciones, una por línea','err');o.votos={}}
+  fsAdd('comunicados',o).then(function(){closeOv();toast('Comunicado publicado','ok');notify(o);loadAll()}).catch(function(x){toast('No se pudo publicar: '+x.message,'err')})},
+ room:function(a,el){S.room={id:a,nombre:el.getAttribute('data-n')};S.msgs=[];render();loadMsgs()},
+ rooms:function(){S.room=null;render()},
+ send:function(){var i=$('#cm'),t=i.value.trim();if(!t)return;i.value='';var m={texto:t,nombre:me().nombre,email:S.session.email,etiqueta:tag(me()),creado:new Date().toISOString()};S.msgs.push(m);var b=$('#msgs');b.innerHTML=msgsHtml();b.scrollTop=b.scrollHeight;fsAdd('chat_grupos/'+S.room.id+'/mensajes',m).catch(function(){toast('Mensaje no enviado','err')})},
+ newgroup:function(){openModal('<h2>Crear grupo</h2><label>Nombre del grupo</label><input id="g-n"><label>Integrantes</label><div style="max-height:240px;overflow:auto">'+S.users.filter(function(u){return u.email!==S.session.email}).map(function(u){return'<label style="display:flex;gap:10px;align-items:center;color:var(--tx);padding:6px 0"><input type="checkbox" class="gm" value="'+esc(u.email)+'" style="width:auto;margin:0"> '+esc(u.nombre)+'<span class="mut">'+esc(u.email)+'</span></label>'}).join('')+'</div><div class="row"><button class="btn gray" data-act="cancel">Cancelar</button><button class="btn" data-act="mkgroup">Crear</button></div>')},
+ mkgroup:function(){var n=$('#g-n').value.trim(),m=[].slice.call(document.querySelectorAll('.gm:checked')).map(function(c){return c.value});if(!n)return toast('Ponle nombre al grupo','err');if(!m.length)return toast('Elige al menos un integrante','err');m.push(S.session.email);
+  var id='g'+Date.now();fsAdd('chat_grupos',{nombre:n,miembros:m,creador:S.session.email,creado:new Date().toISOString()},id).then(function(){closeOv();toast('Grupo creado','ok');return fsList('chat_grupos','pageSize=100')}).then(function(a){S.groups=a;render()}).catch(function(x){toast('No se pudo crear: '+x.message,'err')})},
+ bridge:function(a){br(a)},health:function(){S.health=brj('getHealth');render()},
+ copy:function(){if(!S.fcm)return toast('Aún no hay token');(navigator.clipboard?navigator.clipboard.writeText(S.fcm):Promise.reject()).then(function(){toast('Token copiado','ok')}).catch(function(){toast('No se pudo copiar','err')})},
+ fcm:function(){var t=readToken();render();toast(t?'Token actualizado':'Sin token disponible')},
+ approve:function(a){var u=S.users.filter(function(x){return x.id===a})[0];if(!u)return;confirmM('¿Aprobar como administrador?',u.nombre+' pasará a administrar '+(u.subArea||'')+'.',function(){saveRole(a,'admin',u.subArea||'')},'green')},
+ saverole:function(a){var rEl=document.querySelector('[data-role-for="'+a+'"]'),sEl=document.querySelector('[data-sub-for="'+a+'"]');if(!rEl)return;var r=rEl.value,s=sEl?sEl.value:'';confirmM('¿Cambiar el rol?','Nuevo rol: '+r+(s?' · '+s:''),function(){saveRole(a,r,s)},'blue')},
+ savewh:function(){var u=$('#wh').value.trim();fsSet('config/notificaciones',{webhookUrl:u},['webhookUrl']).then(function(){S.webhook=u;toast('Webhook guardado','ok')}).catch(function(x){toast('No se pudo guardar: '+x.message,'err')})},
+ pubver:function(){var c=Number($('#v-code').value),n=$('#v-name').value.trim(),u=$('#v-url').value.trim();if(!c||!n||!u)return toast('Completa código, nombre y URL','err');
+  confirmM('¿Publicar la versión '+n+'?','Todos los teléfonos verán el aviso de actualización.',function(){fsSet('config/version',{latestVersionCode:c,latestVersionName:n,apkUrl:u,releaseNotes:$('#v-notes').value.trim(),actualizadoIso:new Date().toISOString()}).then(function(){toast('Versión publicada','ok');loadAll()}).catch(function(x){toast('No se pudo publicar: '+x.message,'err')})},'amber')}
+};
+function saveRole(id,r,s){fsSet('usuarios/'+encodeURIComponent(id),{rol:r,subArea:s,rolSolicitado:null},['rol','subArea','rolSolicitado']).then(function(){var u=S.users.filter(function(x){return x.id===id})[0];if(u){u.rol=r;u.subArea=s;delete u.rolSolicitado}toast('Rol actualizado','ok');render()}).catch(function(x){toast('No se pudo guardar: '+x.message,'err')})}
+function loadWh(){fsGet('config/notificaciones').then(function(c){S.webhook=c.webhookUrl||'';if(S.tab==='me'&&isAdm()&&!document.activeElement.id)render()}).catch(function(){})}
+function notify(o){fsGet('config/notificaciones').then(function(c){if(!c.webhookUrl)return;
+ var d=o.destino,to=S.users.filter(function(u){return d==='Todos'||(d==='Edificio ED1'&&u.ubicacion===UBIC[0])||(d==='Edificio ED2'&&u.ubicacion===UBIC[1])||(d==='Brigadistas'&&u.rol==='brigadista')||(d==='Seguridad'&&u.rol==='seguridad')}).map(function(u){return u.email});
+ if(!to.length)return;fetch(c.webhookUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret:'INDRHI_ALERTA_2026',tipo:o.tipo,titulo:o.titulo,descripcion:o.descripcion,fechaEvento:o.fecha||'',fecha:o.fecha||'',enlace:o.enlace||'',destino:d,autor:o.autor,emails:to,destinatarios:to})}).then(function(){toast('Correos enviados a '+to.length+' personas','ok')}).catch(function(){toast('No se pudieron enviar los correos','err')})}).catch(function(){})}
+function subw(){var r=$('#r-rol'),w=$('#r-subw');if(!r||!w)return;var v=r.value;
+ w.innerHTML=v==='brigadista'?'<label>Brigada</label><select id="r-sub">'+BRIG.map(function(b){return'<option>'+b+'</option>'}).join('')+'</select>':v==='admin'?'<label>Departamento</label><select id="r-sub"><option>Tecnología</option><option>Recursos Humanos</option></select><p class="mut">Un administrador de Tecnología o RRHH debe aprobar tu solicitud. Mientras tanto tendrás rol de colaborador.</p>':''}
+function ptipo(){var t=$('#p-tipo').value,e=$('#p-ex');e.innerHTML=(t==='Curso'||t==='Reunión')?'<label>Fecha y hora</label><input id="p-fec" type="datetime-local"><label>Enlace de '+(t==='Curso'?'material':'reunión')+'</label><input id="p-lnk" type="url" placeholder="https://">':t==='Encuesta'?'<label>Opciones (una por línea)</label><textarea id="p-opc" rows="4"></textarea>':''}
+document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var f=A[el.getAttribute('data-act')];if(f)f(el.getAttribute('data-a'),el,e)});
+document.addEventListener('change',function(e){var c=e.target.getAttribute&&e.target.getAttribute('data-chg');if(!c)return;
+ if(c==='rol')subw();else if(c==='ptipo')ptipo();
+ else if(c==='ub'){var p=me();p.ubicacion=e.target.value;p.edificio=e.target.value;saveSession();topics();syncDevice();fsSet('usuarios/'+encodeURIComponent(S.session.email),{ubicacion:p.ubicacion,edificio:p.ubicacion},['ubicacion','edificio']).then(function(){toast('Edificio actualizado','ok')}).catch(function(){toast('No se pudo guardar','err')})}});
+document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.id==='cm')A.send();if(e.key==='Enter'&&e.target.id==='a-pass')doLogin()});
+window.addEventListener('online',function(){bg();loadAll()});
+loadSession();
+if(S.session&&S.session.email){start()}else{S.session=null;render()}
 })();
-</script>
-</body>
-</html>
-
-
+</script></body></html>
